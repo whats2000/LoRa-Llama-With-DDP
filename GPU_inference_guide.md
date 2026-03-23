@@ -131,7 +131,8 @@ done
 
 ### 3.2 多節點分散推理（SLURM + srun）
 
-本專案的多節點推理模式：**每個節點獨立啟動 vLLM 服務，各自處理資料分片，最後合併結果**。這與訓練的 all-reduce 模式完全不同——推理不需要跨節點通訊。
+常見的多節點推理模式：**每個節點獨立啟動 vLLM 服務，各自處理資料分片，最後合併結果**。
+這與訓練的 all-reduce 模式完全不同——推理不需要跨節點通訊。
 
 ```bash
 #SBATCH --nodes=4
@@ -143,7 +144,7 @@ done
 # 2. 每個實例執行自己那份資料分片的推理
 # 3. 結果寫入各自的 JSONL 檔
 srun --nodes=$SLURM_NNODES --ntasks=$SLURM_NNODES --ntasks-per-node=1 \
-    bash run_inference_wrapper.sh
+    bash inference_wrapper.sh
 ```
 
 關鍵差異：
@@ -279,11 +280,11 @@ with open(results_path, "a", encoding="utf-8") as f:
 ```bash
 # 在 srun 前生成，傳給所有節點
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-export TWINKLE_EVAL_RUN_TIMESTAMP=$TIMESTAMP
+export EVAL_RUN_TIMESTAMP=$TIMESTAMP
 
 srun ... bash -c "
     # 每個節點都用同一個 TIMESTAMP
-    uv run twinkle-eval --config $CONFIG --export json
+    python run_eval.py --config \$CONFIG --timestamp \$EVAL_RUN_TIMESTAMP
 "
 ```
 
@@ -408,4 +409,4 @@ KV-Cache VRAM ≈ 2 × num_layers × hidden_size × max_model_len × dtype_size 
 - [ ] 結果檔路徑在 shared filesystem 上，所有節點都看得到
 - [ ] 結果檔名包含 `node_id` 和 `rank`，避免寫入衝突
 - [ ] 有合併腳本在所有 rank 完成後執行結果整合
-- [ ] 統一時間戳（`TWINKLE_EVAL_RUN_TIMESTAMP`）在 `srun` 前生成並傳遞給所有節點
+- [ ] 統一時間戳（如 `EVAL_RUN_TIMESTAMP`）在 `srun` 前生成並傳遞給所有節點
