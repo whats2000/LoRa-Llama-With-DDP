@@ -270,7 +270,9 @@ def load_datasets(
     val_ratio = float(data_cfg["val_ratio"])  # type: ignore[arg-type]
     seed = int(data_cfg["seed"])  # type: ignore[arg-type]
 
-    train_df, val_df = train_test_split(df, test_size=val_ratio, random_state=seed)
+    train_df, val_df = train_test_split(
+        df, test_size=val_ratio, random_state=seed, stratify=df["ans"],
+    )
 
     return (
         train_df.reset_index(drop=True),
