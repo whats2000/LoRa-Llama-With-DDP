@@ -1,4 +1,4 @@
-# HW1: Question Answering
+# Medical Question Answering with LLaMA 3.2 and LoRA
 
 Fine-tuning `meta-llama/Llama-3.2-1B-Instruct` with LoRA on the **PathoQA** dataset for medical multiple-choice question answering.
 
