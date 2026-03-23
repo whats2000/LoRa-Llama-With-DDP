@@ -150,3 +150,14 @@ HW1_{student_id}/
 | 梯度累積（`training.grad_accumulation_steps`） | 2；**若批次大小降至 4，請增加至 96**（維持有效批次大小：768） |
 | 學習率 | 1e-4 |
 | 提示策略 | CoT |
+
+---
+
+## 進階探索
+
+完成本專案後，可進一步嘗試以下工具，體驗更完整的 LLM 訓練與評測流程：
+
+| 工具 | 說明 |
+|------|------|
+| [LLaMA Factory](https://llamafactory.readthedocs.io/en/latest/) | 一站式 LLM 微調框架，內建 DDP、DeepSpeed ZeRO、FSDP 等分散式訓練策略，支援 LoRA/QLoRA 與多節點擴展 |
+| [Twinkle Eval](https://github.com/ai-twinkle/Eval) | 高效能 LLM 評測框架，支援 TMMLU+、MMLU 等標準 Benchmark，具備選項隨機化、並行評測與多格式匯出 |
