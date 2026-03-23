@@ -76,15 +76,13 @@ nvnodetop        # 啟動後按 q 離開
 ### 其他快速指令
 
 ```bash
-# 單次快照，不持續佔用
-nvidia-smi
-
-# 定時刷新，觀察穩定後 Ctrl+C 結束
-watch -n 2 nvidia-smi
-
-# 查看哪個 PID 佔用多少顯存
-nvidia-smi --query-compute-apps=pid,used_memory --format=csv
+# 查看 Slurm 規則、集群狀態與用戶工作負載狀態
+pip install sltop
+sltop             # 打開檢視器，一樣用完按 q 離開
 ```
+
+> [!TIP]
+> 有不少 cluster 會有設置特定規範，務必檢查 cluster 的使用規則（如 GPU 時限、作業優先級、資源限制等），以免提交後才發現不符合規定而被取消。
 
 ### 觀察重點
 
