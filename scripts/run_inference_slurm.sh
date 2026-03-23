@@ -54,7 +54,7 @@ mkdir -p logs
 # ── Redirect TMPDIR away from /tmp ────────────────────────────────────────────
 export TMPDIR="$WORKDIR/.tmp_${SLURM_JOB_ID:-$$}"
 mkdir -p "$TMPDIR"
-trap 'kill $(jobs -p) 2>/dev/null; rm -rf "$TMPDIR"' EXIT
+trap 'kill $(jobs -p) 2>/dev/null || true; rm -rf "$TMPDIR"' EXIT
 
 # ── Parameters (can be overridden via environment) ────────────────────────────
 N_EXAMPLES="${N_EXAMPLES:-0}"
