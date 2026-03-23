@@ -2,54 +2,146 @@
 #    uv export --no-hashes -o requirements.txt
 accelerate==1.13.0
     # via
-    #   hw1-question-answering
+    #   medical-question-answering
     #   peft
 aiohappyeyeballs==2.6.1
     # via aiohttp
 aiohttp==3.13.3
-    # via fsspec
+    # via
+    #   fsspec
+    #   vllm
 aiosignal==1.4.0
     # via aiohttp
 annotated-doc==0.0.4
-    # via typer
+    # via
+    #   fastapi
+    #   typer
+annotated-types==0.7.0
+    # via pydantic
+anthropic==0.86.0
+    # via vllm
 anyio==4.12.1
-    # via httpx
+    # via
+    #   anthropic
+    #   httpx
+    #   mcp
+    #   openai
+    #   sse-starlette
+    #   starlette
+    #   watchfiles
+apache-tvm-ffi==0.1.9
+    # via
+    #   flashinfer-python
+    #   quack-kernels
+astor==0.8.1
+    # via depyf
 attrs==25.4.0
-    # via aiohttp
+    # via
+    #   aiohttp
+    #   jsonschema
+    #   referencing
 bitsandbytes==0.49.2
-    # via hw1-question-answering
+    # via medical-question-answering
+blake3==1.0.8
+    # via vllm
+cachetools==7.0.5
+    # via vllm
+cbor2==5.9.0
+    # via vllm
 certifi==2026.2.25
     # via
     #   httpcore
     #   httpx
     #   requests
+    #   sentry-sdk
+cffi==2.0.0 ; implementation_name == 'pypy' or platform_python_implementation != 'PyPy'
+    # via
+    #   cryptography
+    #   pyzmq
 charset-normalizer==3.4.5
     # via requests
 click==8.3.1
-    # via typer
+    # via
+    #   flashinfer-python
+    #   rich-toolkit
+    #   typer
+    #   uvicorn
+cloudpickle==3.1.2
+    # via vllm
 colorama==0.4.6 ; sys_platform == 'win32'
     # via
     #   click
+    #   loguru
     #   tqdm
+    #   uvicorn
+compressed-tensors==0.13.0
+    # via vllm
 contourpy==1.3.3
     # via matplotlib
-cuda-bindings==12.9.4 ; platform_machine == 'x86_64' and sys_platform == 'linux'
-    # via torch
-cuda-pathfinder==1.4.2 ; platform_machine == 'x86_64' and sys_platform == 'linux'
-    # via cuda-bindings
+cryptography==46.0.5
+    # via pyjwt
+cuda-bindings==12.9.4 ; sys_platform != 'emscripten' and sys_platform != 'win32'
+    # via
+    #   cuda-python
+    #   torch
+cuda-bindings==13.2.0 ; sys_platform == 'emscripten' or sys_platform == 'win32'
+    # via cuda-python
+cuda-pathfinder==1.4.2
+    # via
+    #   cuda-bindings
+    #   cuda-python
+cuda-python==12.9.4 ; sys_platform != 'emscripten' and sys_platform != 'win32'
+    # via nvidia-cutlass-dsl-libs-base
+cuda-python==13.2.0 ; sys_platform == 'emscripten' or sys_platform == 'win32'
+    # via nvidia-cutlass-dsl-libs-base
 cycler==0.12.1
     # via matplotlib
 datasets==4.7.0
-    # via hw1-question-answering
+    # via medical-question-answering
+depyf==0.20.0
+    # via vllm
 dill==0.4.0
     # via
     #   datasets
+    #   depyf
     #   multiprocess
+diskcache==5.6.3
+    # via vllm
+distro==1.9.0
+    # via
+    #   anthropic
+    #   openai
+dnspython==2.8.0
+    # via email-validator
+docstring-parser==0.17.0
+    # via anthropic
+einops==0.8.2
+    # via
+    #   flashinfer-python
+    #   vllm
+email-validator==2.3.0
+    # via
+    #   fastapi
+    #   pydantic
+fastapi==0.135.1
+    # via
+    #   model-hosting-container-standards
+    #   vllm
+fastapi-cli==0.0.24
+    # via fastapi
+fastapi-cloud-cli==0.15.0
+    # via fastapi-cli
+fastar==0.9.0
+    # via fastapi-cloud-cli
 filelock==3.25.1
     # via
     #   datasets
     #   huggingface-hub
     #   torch
+    #   transformers
+    #   vllm
+flashinfer-python==0.6.6
+    # via vllm
 fonttools==4.62.0
     # via matplotlib
 frozenlist==1.8.0
@@ -61,17 +153,36 @@ fsspec==2026.2.0
     #   datasets
     #   huggingface-hub
     #   torch
+gguf==0.18.0
+    # via vllm
+googleapis-common-protos==1.73.0
+    # via
+    #   opentelemetry-exporter-otlp-proto-grpc
+    #   opentelemetry-exporter-otlp-proto-http
+grpcio==1.78.0
+    # via opentelemetry-exporter-otlp-proto-grpc
 h11==0.16.0
-    # via httpcore
-hf-xet==1.3.2 ; platform_machine == 'AMD64' or platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'arm64' or platform_machine == 'x86_64'
+    # via
+    #   httpcore
+    #   uvicorn
+hf-xet==1.3.2 ; platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'arm64' or platform_machine == 'x86_64'
     # via huggingface-hub
 httpcore==1.0.9
     # via httpx
+httptools==0.7.1
+    # via uvicorn
 httpx==0.28.1
     # via
+    #   anthropic
     #   datasets
-    #   huggingface-hub
-huggingface-hub==1.6.0
+    #   fastapi
+    #   fastapi-cloud-cli
+    #   mcp
+    #   model-hosting-container-standards
+    #   openai
+httpx-sse==0.4.3
+    # via mcp
+huggingface-hub==0.36.2
     # via
     #   accelerate
     #   datasets
@@ -81,25 +192,64 @@ huggingface-hub==1.6.0
 idna==3.11
     # via
     #   anyio
+    #   email-validator
     #   httpx
     #   requests
     #   yarl
+ijson==3.5.0
+    # via vllm
+importlib-metadata==8.7.1
+    # via opentelemetry-api
+interegular==0.3.3
+    # via lm-format-enforcer
 jinja2==3.1.6
-    # via torch
+    # via
+    #   fastapi
+    #   torch
+jiter==0.13.0
+    # via
+    #   anthropic
+    #   openai
+jmespath==1.1.0
+    # via model-hosting-container-standards
 joblib==1.5.3
     # via scikit-learn
+jsonschema==4.26.0
+    # via
+    #   mcp
+    #   mistral-common
+jsonschema-specifications==2025.9.1
+    # via jsonschema
 kiwisolver==1.5.0
     # via matplotlib
+lark==1.2.2
+    # via vllm
+llguidance==1.3.0 ; platform_machine == 'aarch64' or platform_machine == 'arm64' or platform_machine == 'ppc64le' or platform_machine == 's390x' or platform_machine == 'x86_64'
+    # via vllm
+llvmlite==0.44.0
+    # via numba
+lm-format-enforcer==0.11.3
+    # via vllm
+loguru==0.7.3
+    # via compressed-tensors
 markdown-it-py==4.0.0
     # via rich
 markupsafe==3.0.3
     # via jinja2
 matplotlib==3.10.8
-    # via hw1-question-answering
+    # via medical-question-answering
+mcp==1.26.0
+    # via vllm
 mdurl==0.1.2
     # via markdown-it-py
+mistral-common==1.10.0
+    # via vllm
+model-hosting-container-standards==0.1.14
+    # via vllm
 mpmath==1.3.0
     # via sympy
+msgspec==0.20.0
+    # via vllm
 multidict==6.7.1
     # via
     #   aiohttp
@@ -108,18 +258,33 @@ multiprocess==0.70.18
     # via datasets
 networkx==3.6.1
     # via torch
-numpy==2.4.3
+ninja==1.13.0
+    # via
+    #   flashinfer-python
+    #   vllm
+numba==0.61.2
+    # via vllm
+numpy==2.2.6
     # via
     #   accelerate
     #   bitsandbytes
     #   contourpy
     #   datasets
+    #   flashinfer-python
+    #   gguf
     #   matplotlib
+    #   mistral-common
+    #   numba
+    #   nvidia-cutlass-dsl-libs-base
+    #   opencv-python-headless
     #   pandas
     #   peft
     #   scikit-learn
     #   scipy
+    #   torchvision
     #   transformers
+    #   vllm
+    #   xgrammar
 nvidia-cublas-cu12==12.8.4.1 ; platform_machine == 'x86_64' and sys_platform == 'linux'
     # via
     #   nvidia-cudnn-cu12
@@ -133,6 +298,10 @@ nvidia-cuda-runtime-cu12==12.8.90 ; platform_machine == 'x86_64' and sys_platfor
     # via torch
 nvidia-cudnn-cu12==9.10.2.21 ; platform_machine == 'x86_64' and sys_platform == 'linux'
     # via torch
+nvidia-cudnn-frontend==1.18.0
+    # via
+    #   flashinfer-python
+    #   vllm
 nvidia-cufft-cu12==11.3.3.83 ; platform_machine == 'x86_64' and sys_platform == 'linux'
     # via torch
 nvidia-cufile-cu12==1.13.1.3 ; platform_machine == 'x86_64' and sys_platform == 'linux'
@@ -147,6 +316,15 @@ nvidia-cusparse-cu12==12.5.8.93 ; platform_machine == 'x86_64' and sys_platform 
     #   torch
 nvidia-cusparselt-cu12==0.7.1 ; platform_machine == 'x86_64' and sys_platform == 'linux'
     # via torch
+nvidia-cutlass-dsl==4.4.2
+    # via
+    #   flashinfer-python
+    #   quack-kernels
+    #   vllm
+nvidia-cutlass-dsl-libs-base==4.4.2
+    # via nvidia-cutlass-dsl
+nvidia-ml-py==13.595.45
+    # via flashinfer-python
 nvidia-nccl-cu12==2.27.5 ; platform_machine == 'x86_64' and sys_platform == 'linux'
     # via torch
 nvidia-nvjitlink-cu12==12.8.93 ; platform_machine == 'x86_64' and sys_platform == 'linux'
@@ -159,55 +337,203 @@ nvidia-nvshmem-cu12==3.4.5 ; platform_machine == 'x86_64' and sys_platform == 'l
     # via torch
 nvidia-nvtx-cu12==12.8.90 ; platform_machine == 'x86_64' and sys_platform == 'linux'
     # via torch
+openai==2.24.0
+    # via vllm
+openai-harmony==0.0.8
+    # via vllm
+opencv-python-headless==4.13.0.92
+    # via
+    #   mistral-common
+    #   vllm
+opentelemetry-api==1.40.0
+    # via
+    #   opentelemetry-exporter-otlp-proto-grpc
+    #   opentelemetry-exporter-otlp-proto-http
+    #   opentelemetry-sdk
+    #   opentelemetry-semantic-conventions
+    #   vllm
+opentelemetry-exporter-otlp==1.40.0
+    # via vllm
+opentelemetry-exporter-otlp-proto-common==1.40.0
+    # via
+    #   opentelemetry-exporter-otlp-proto-grpc
+    #   opentelemetry-exporter-otlp-proto-http
+opentelemetry-exporter-otlp-proto-grpc==1.40.0
+    # via opentelemetry-exporter-otlp
+opentelemetry-exporter-otlp-proto-http==1.40.0
+    # via opentelemetry-exporter-otlp
+opentelemetry-proto==1.40.0
+    # via
+    #   opentelemetry-exporter-otlp-proto-common
+    #   opentelemetry-exporter-otlp-proto-grpc
+    #   opentelemetry-exporter-otlp-proto-http
+opentelemetry-sdk==1.40.0
+    # via
+    #   opentelemetry-exporter-otlp-proto-grpc
+    #   opentelemetry-exporter-otlp-proto-http
+    #   opentelemetry-semantic-conventions-ai
+    #   vllm
+opentelemetry-semantic-conventions==0.61b0
+    # via
+    #   opentelemetry-sdk
+    #   opentelemetry-semantic-conventions-ai
+opentelemetry-semantic-conventions-ai==0.5.0
+    # via vllm
+outlines-core==0.2.11
+    # via vllm
 packaging==26.0
     # via
     #   accelerate
     #   bitsandbytes
     #   datasets
+    #   flashinfer-python
     #   huggingface-hub
+    #   lm-format-enforcer
     #   matplotlib
     #   peft
     #   transformers
 pandas==3.0.1
     # via
     #   datasets
-    #   hw1-question-answering
+    #   medical-question-answering
+partial-json-parser==0.2.1.1.post7
+    # via vllm
 peft==0.18.1
-    # via hw1-question-answering
+    # via medical-question-answering
 pillow==12.1.1
-    # via matplotlib
+    # via
+    #   matplotlib
+    #   mistral-common
+    #   torchvision
+    #   vllm
+prometheus-client==0.24.1
+    # via
+    #   prometheus-fastapi-instrumentator
+    #   vllm
+prometheus-fastapi-instrumentator==7.1.0
+    # via vllm
 propcache==0.4.1
     # via
     #   aiohttp
     #   yarl
+protobuf==6.33.6
+    # via
+    #   googleapis-common-protos
+    #   opentelemetry-proto
+    #   vllm
 psutil==7.2.2
     # via
     #   accelerate
     #   peft
+    #   vllm
+py-cpuinfo==9.0.0
+    # via vllm
 pyarrow==23.0.1
     # via datasets
+pybase64==1.4.3
+    # via vllm
+pycountry==26.2.16
+    # via pydantic-extra-types
+pycparser==3.0 ; (implementation_name != 'PyPy' and platform_python_implementation != 'PyPy') or (implementation_name == 'pypy' and platform_python_implementation == 'PyPy')
+    # via cffi
+pydantic==2.12.5
+    # via
+    #   anthropic
+    #   compressed-tensors
+    #   fastapi
+    #   fastapi-cloud-cli
+    #   lm-format-enforcer
+    #   mcp
+    #   mistral-common
+    #   model-hosting-container-standards
+    #   openai
+    #   openai-harmony
+    #   pydantic-extra-types
+    #   pydantic-settings
+    #   vllm
+    #   xgrammar
+pydantic-core==2.41.5
+    # via pydantic
+pydantic-extra-types==2.11.1
+    # via
+    #   fastapi
+    #   mistral-common
+pydantic-settings==2.13.1
+    # via
+    #   fastapi
+    #   mcp
 pygments==2.19.2
     # via rich
+pyjwt==2.12.1
+    # via mcp
 pyparsing==3.3.2
     # via matplotlib
 python-dateutil==2.9.0.post0
     # via
     #   matplotlib
     #   pandas
+python-dotenv==1.2.2
+    # via
+    #   pydantic-settings
+    #   uvicorn
+python-json-logger==4.0.0
+    # via vllm
+python-multipart==0.0.22
+    # via
+    #   fastapi
+    #   mcp
+pywin32==311 ; sys_platform == 'win32'
+    # via mcp
 pyyaml==6.0.3
     # via
     #   accelerate
     #   datasets
+    #   gguf
     #   huggingface-hub
-    #   hw1-question-answering
+    #   lm-format-enforcer
+    #   medical-question-answering
     #   peft
     #   transformers
+    #   uvicorn
+    #   vllm
+pyzmq==27.1.0
+    # via vllm
+quack-kernels==0.3.5
+    # via vllm
+referencing==0.37.0
+    # via
+    #   jsonschema
+    #   jsonschema-specifications
 regex==2026.2.28
-    # via transformers
+    # via
+    #   tiktoken
+    #   transformers
+    #   vllm
 requests==2.32.5
-    # via datasets
+    # via
+    #   datasets
+    #   flashinfer-python
+    #   gguf
+    #   huggingface-hub
+    #   mistral-common
+    #   opentelemetry-exporter-otlp-proto-http
+    #   tiktoken
+    #   transformers
+    #   vllm
 rich==14.3.3
-    # via typer
+    # via
+    #   rich-toolkit
+    #   typer
+rich-toolkit==0.19.7
+    # via
+    #   fastapi-cli
+    #   fastapi-cloud-cli
+rignore==0.7.6
+    # via fastapi-cloud-cli
+rpds-py==0.30.0
+    # via
+    #   jsonschema
+    #   referencing
 ruff==0.15.5
 safetensors==0.7.0
     # via
@@ -215,55 +541,160 @@ safetensors==0.7.0
     #   peft
     #   transformers
 scikit-learn==1.8.0
-    # via hw1-question-answering
+    # via medical-question-answering
 scipy==1.17.1
     # via scikit-learn
-setuptools==82.0.1 ; python_full_version >= '3.12'
-    # via torch
+sentencepiece==0.2.1
+    # via vllm
+sentry-sdk==2.55.0
+    # via fastapi-cloud-cli
+setproctitle==1.3.7
+    # via vllm
+setuptools==82.0.1
+    # via model-hosting-container-standards
 shellingham==1.5.4
     # via typer
 six==1.17.0
     # via python-dateutil
+sniffio==1.3.1
+    # via
+    #   anthropic
+    #   openai
+sse-starlette==3.3.3
+    # via mcp
+starlette==0.52.1
+    # via
+    #   fastapi
+    #   mcp
+    #   model-hosting-container-standards
+    #   prometheus-fastapi-instrumentator
+    #   sse-starlette
+supervisor==4.3.0
+    # via model-hosting-container-standards
 sympy==1.14.0
     # via torch
+tabulate==0.10.0
+    # via flashinfer-python
 threadpoolctl==3.6.0
     # via scikit-learn
+tiktoken==0.12.0
+    # via
+    #   mistral-common
+    #   vllm
 tokenizers==0.22.2
-    # via transformers
+    # via
+    #   transformers
+    #   vllm
 torch==2.10.0
     # via
     #   accelerate
     #   bitsandbytes
-    #   hw1-question-answering
+    #   compressed-tensors
+    #   flashinfer-python
+    #   medical-question-answering
     #   peft
+    #   quack-kernels
+    #   torch-c-dlpack-ext
+    #   torchaudio
+    #   torchvision
+    #   vllm
+    #   xgrammar
+torch-c-dlpack-ext==0.1.5
+    # via quack-kernels
+torchaudio==2.10.0
+    # via vllm
+torchvision==0.25.0
+    # via vllm
 tqdm==4.67.3
     # via
     #   datasets
+    #   flashinfer-python
+    #   gguf
     #   huggingface-hub
-    #   hw1-question-answering
+    #   medical-question-answering
+    #   openai
     #   peft
     #   transformers
-transformers==5.3.0
+    #   vllm
+transformers==4.57.6
     # via
-    #   hw1-question-answering
+    #   compressed-tensors
+    #   medical-question-answering
     #   peft
+    #   vllm
+    #   xgrammar
 triton==3.6.0 ; platform_machine == 'x86_64' and sys_platform == 'linux'
-    # via torch
+    # via
+    #   torch
+    #   xgrammar
 typer==0.24.1
     # via
-    #   huggingface-hub
-    #   transformers
+    #   fastapi-cli
+    #   fastapi-cloud-cli
 typing-extensions==4.15.0
     # via
     #   aiosignal
+    #   anthropic
     #   anyio
+    #   apache-tvm-ffi
+    #   blake3
+    #   fastapi
+    #   grpcio
     #   huggingface-hub
+    #   mcp
+    #   mistral-common
+    #   nvidia-cutlass-dsl-libs-base
+    #   openai
+    #   opentelemetry-api
+    #   opentelemetry-exporter-otlp-proto-grpc
+    #   opentelemetry-exporter-otlp-proto-http
+    #   opentelemetry-sdk
+    #   opentelemetry-semantic-conventions
+    #   pydantic
+    #   pydantic-core
+    #   pydantic-extra-types
+    #   referencing
+    #   rich-toolkit
+    #   starlette
     #   torch
+    #   typing-inspection
+    #   vllm
+    #   xgrammar
+typing-inspection==0.4.2
+    # via
+    #   fastapi
+    #   mcp
+    #   pydantic
+    #   pydantic-settings
 tzdata==2025.3 ; sys_platform == 'emscripten' or sys_platform == 'win32'
     # via pandas
 urllib3==2.6.3
-    # via requests
+    # via
+    #   requests
+    #   sentry-sdk
+uvicorn==0.42.0
+    # via
+    #   fastapi
+    #   fastapi-cli
+    #   fastapi-cloud-cli
+    #   mcp
+uvloop==0.22.1 ; platform_python_implementation != 'PyPy' and sys_platform != 'cygwin' and sys_platform != 'win32'
+    # via uvicorn
+vllm==0.18.0
+    # via medical-question-answering
+watchfiles==1.1.1
+    # via
+    #   uvicorn
+    #   vllm
+websockets==16.0
+    # via uvicorn
+win32-setctime==1.2.0 ; sys_platform == 'win32'
+    # via loguru
+xgrammar==0.1.32 ; platform_machine == 'aarch64' or platform_machine == 'arm64' or platform_machine == 'ppc64le' or platform_machine == 's390x' or platform_machine == 'x86_64'
+    # via vllm
 xxhash==3.6.0
     # via datasets
 yarl==1.23.0
     # via aiohttp
+zipp==3.23.0
+    # via importlib-metadata
