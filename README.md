@@ -92,6 +92,9 @@ uv run main.py --config configs/cot.yaml
 ```bash
 # 實驗在 nano4.nchc.org.tw 上執行，但腳本可適用於任何具備類似資源的 Slurm 叢集。
 sbatch --account=<使用者或專案ID> scripts/run_experience_slurm.sh
+
+# 驗證訓練後模型，對驗證集進行評估，並將結果輸出至 JSONL 檔案。
+sbatch --account=<使用者或專案ID> scripts/run_infer_validation_slurm.sh
 ```
 
 將 `<使用者或專案ID>` 替換為您的叢集帳號名稱（例如您的使用者 ID 或計算專案 ID）。
