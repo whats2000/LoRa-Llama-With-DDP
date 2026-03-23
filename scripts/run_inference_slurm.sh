@@ -71,7 +71,7 @@ MAX_MODEL_LEN="${MAX_MODEL_LEN:-2048}"
 GPU_MEM_UTIL="${GPU_MEM_UTIL:-0.90}"
 MAX_WORKERS="${MAX_WORKERS:-16}"
 VLLM_STARTUP_TIMEOUT="${VLLM_STARTUP_TIMEOUT:-600}"
-VARIANTS="${VARIANTS:-zero_shot few_shot cot}"
+VARIANTS="${VARIANTS:-zero_shot few_shot}" # We skip "cot" for faster inference, but can add it back if needed
 
 # Read MODEL_ID from config if not set
 if [ -z "${MODEL_ID:-}" ]; then
