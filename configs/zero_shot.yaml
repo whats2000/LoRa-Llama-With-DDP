@@ -1,0 +1,9 @@
+# ── Experiment: Zero-Shot ──────────────────────────────────────────────────────
+# Inherits everything from base.yaml; only overrides what differs.
+
+paths:
+  saved_models: "saved_models/checkpoint/zero_shot"
+  output_csv: "outputs/zero_shot_submission.csv"
+
+prompting:
+  strategy: "zero_shot"

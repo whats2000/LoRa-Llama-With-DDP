@@ -1,0 +1,89 @@
+# ── Paths ──────────────────────────────────────────────────────────────────────
+paths:
+  dataset: "dataset/dataset.csv"        # Format in `question_id,question,opa,opb,opc,opd,ans`
+  benchmark: "dataset/benchmark.csv"    # Format in `question_id,question,opa,opb,opc,opd`
+  saved_models: "saved_models"          # The trained model checkpoints will be saved here; subdirectories for each experiment will be created automatically
+  output_csv: "dataset/submission.csv"  # The final predictions will be saved here in the format `question_id,pred`
+
+# ── Data split ─────────────────────────────────────────────────────────────────
+data:
+  val_ratio: 0.1
+  seed: 42
+
+# ── Model ──────────────────────────────────────────────────────────────────────
+model:
+  model_id: "meta-llama/Llama-3.2-1B-Instruct"  # Hugging Face model ID for the base model
+  use_4bit: false                               # Whether to use 4-bit quantization (Default experiments use bf16) 
+
+# ── LoRA ───────────────────────────────────────────────────────────────────────
+lora:
+  r: 64
+  lora_alpha: 128
+  target_modules: ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]
+  lora_dropout: 0.05
+  bias: "none"
+
+# ── Training ───────────────────────────────────────────────────────────────
+training:
+  epochs: 10                  # Number of training epochs
+  batch_size: 48              # Per GPU batch size; VRAM bound at 512 tokens; 48 × 1 accum × 16 GPUs = 768 effective
+  grad_accumulation_steps: 1  # CoT overrides to 2 (with batch=24) to keep 768 effective despite larger context
+  learning_rate: 5e-5         # Learning rate for the optimizer
+  max_length: 512             # Maximum sequence length for inputs and outputs
+  max_new_tokens: 256         # Maximum tokens generated per example during inference
+  warmup_ratio: 0.05          # Proportion of training steps for learning rate warmup
+  weight_decay: 0.01          # Weight decay for regularization
+  save_best: true             # Whether to save the best model based on validation performance
+
+# ── Inference ───────────────────────────────────────────────────────────────
+inference:
+  batch_size: 16              # Number of examples per forward pass during inference
+
+# ── Prompting ──────────────────────────────────────────────────────────────────
+prompting:
+  # strategy: zero_shot | few_shot | cot
+  strategy: "cot"            # This will be overridden in the experiment-specific config files (zero_shot.yaml, few_shot.yaml, cot.yaml)
+  num_few_shot_examples: 4   # Only used when strategy=few_shot
+
+  # The model system message for the model to understand the task
+  system_message: >-
+    You are a medical expert specializing in pathology.
+    Answer the following multiple-choice question.
+
+  # {question}, {opa}, {opb}, {opc}, {opd} are replaced at runtime.
+  question_block: |
+    Question: {question}
+    A. {opa}
+    B. {opb}
+    C. {opc}
+    D. {opd}
+
+  zero_shot:
+    suffix: "Answer with only the letter (A, B, C or D).\nAnswer:"
+
+  few_shot:
+    example_suffix: "Answer: {label}"
+    suffix: "Answer with only the letter (A, B, C or D).\nAnswer:"
+
+  cot:
+    prefix: >-
+      Before giving the final letter answer, briefly reason step by step.
+      End your response with "Answer: <letter>" on its own line.
+    suffix: "Let's think step by step:"
+    # Rationale distillation: generate explanations *before* training and use
+    # them as CoT supervision targets instead of a bare answer letter.
+    use_rationale_distillation: true
+    rationale_max_new_tokens: 200
+    # {question}, {opa}, {opb}, {opc}, {opd}, {label} are replaced at runtime.
+    rationale_prompt: |-
+      You are a medical expert specializing in pathology.
+      For the following pathology question, option {label} is the correct answer.
+      Write a concise step-by-step medical explanation for why option {label} is correct.
+
+      Question: {question}
+      A. {opa}
+      B. {opb}
+      C. {opc}
+      D. {opd}
+
+      Step-by-step explanation:

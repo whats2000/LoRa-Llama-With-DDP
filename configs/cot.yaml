@@ -1,0 +1,15 @@
+# ── Experiment: Chain-of-Thought ──────────────────────────────────────────────
+# Inherits everything from base.yaml; only overrides what differs.
+
+paths:
+  saved_models: "saved_models/checkpoint/cot"
+  output_csv: "outputs/cot_submission.csv"
+
+training:
+  max_new_tokens: 512
+  max_length: 1024              # Larger window to fit prompt + rationale + answer
+  batch_size: 24                # Smaller per-GPU batch due to 2× context; 24 × 2 accum × 16 GPUs = 768 effective
+  grad_accumulation_steps: 2    # Compensates for reduced batch_size to keep 768 effective
+
+prompting:
+  strategy: "cot"

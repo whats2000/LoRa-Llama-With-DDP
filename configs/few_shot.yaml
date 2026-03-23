@@ -1,0 +1,10 @@
+# ── Experiment: Few-Shot ───────────────────────────────────────────────────────
+# Inherits everything from base.yaml; only overrides what differs.
+
+paths:
+  saved_models: "saved_models/checkpoint/few_shot"
+  output_csv: "outputs/few_shot_submission.csv"
+
+prompting:
+  strategy: "few_shot"
+  num_few_shot_examples: 4
