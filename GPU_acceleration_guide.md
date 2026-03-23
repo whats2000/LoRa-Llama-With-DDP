@@ -105,9 +105,10 @@ nvidia-smi --query-compute-apps=pid,used_memory --format=csv
 ```bash
 accelerate launch \
     --multi_gpu \
-    --num_processes=8 \          # 節點上有幾張卡
+    --num_processes=8 \
     --mixed_precision=bf16 \
     main.py --config configs/zero_shot.yaml
+# --num_processes: 節點上有幾張卡
 ```
 
 ### 3.2 跨節點擴展（SLURM + srun）
@@ -146,9 +147,10 @@ srun --nodes=$SLURM_NNODES --ntasks=$SLURM_NNODES --ntasks-per-node=1 \
 
 ### 3.3 有效 batch size 計算
 
-```
+```text
 有效 batch = batch_size × grad_accumulation_steps × num_gpus
-           = 48   ×  1   × (2 nodes × 8 GPUs)  = 768
+           = 48         × 1                       × (2 nodes × 8 GPUs)
+           = 768
 ```
 
 > [!TIP]
@@ -178,11 +180,14 @@ srun --nodes=$SLURM_NNODES --ntasks=$SLURM_NNODES --ntasks-per-node=1 \
 
 ### 判斷標準
 
-```
-若 單節點 8 GPU 已不夠快  →  擴跨節點
-若 VRAM 不夠裝模型        →  先考慮 ZeRO / offload，再考慮跨節點 tensor parallel
-若通訊比計算慢            →  加大 batch / grad_accum，或升 InfiniBand
-```
+| 情境 | 建議 |
+|------|------|
+| 單節點 8 GPU 已不夠快 | 擴跨節點 |
+| VRAM 不夠裝模型 | 先考慮 ZeRO / offload，再考慮跨節點 tensor parallel |
+| 通訊比計算慢 | 加大 batch / grad_accum，或升 InfiniBand |
+
+> [!TIP]
+> 在跨節點訓練中，通訊延遲可能成為瓶頸，並非越多 GPU 就越快。**確保每次通訊換來足夠的計算量**（透過增大 batch size 和梯度累積）是關鍵。
 
 ---
 
@@ -241,10 +246,10 @@ all_results.sort(key=lambda x: x["idx"])
 
 | 問題 | 症狀 | 解法 |
 |------|------|------|
-| 多 rank 同時 `from_pretrained`，卡在 NFS | 程式 hang 住，`nvidia-smi` 顯示 GPU idle | 讓 rank 0 先下載，`wait_for_everyone()` 後其餘 rank 從 local cache 讀 |
-| 多個 DataLoader worker 同時讀同一 CSV | I/O util 100%，GPU util 低 | 預先把資料 tokenize 並快取成 `.pt` 檔（`torch.save`），或減少 `num_workers` |
-| 多 rank 同時寫 JSONL 輸出 | 輸出行順序錯亂、重複或遺失 | 只讓 `is_main_process` 寫；或依 rank 命名暫存檔，最後合併 |
-| TMPDIR 跨節點指向不同路徑 | 節點 A 找不到節點 B 的暫存檔 | `TMPDIR` 指向 shared filesystem（如 NFS），或完全不跨 rank 共享暫存 |
+| 多 rank 同時 `from_pretrained`，卡在 NFS | 程式 hang，GPU idle | rank 0 先下載 → `wait_for_everyone()` → 其餘 rank 讀 local cache |
+| 多個 DataLoader worker 同時讀同一 CSV | I/O 100%，GPU util 低 | 預先 tokenize 並快取為 `.pt`（`torch.save`），或減少 `num_workers` |
+| 多 rank 同時寫 JSONL 輸出 | 行順序錯亂 / 重複 / 遺失 | 只讓 `is_main_process` 寫；或依 rank 命名暫存檔，最後合併 |
+| TMPDIR 跨節點指向不同路徑 | 節點 A 找不到節點 B 的暫存檔 | `TMPDIR` 指向 shared filesystem（如 NFS），或不跨 rank 共享暫存 |
 
 ### 5.4 DataLoader 的 `num_workers` 設定
 
