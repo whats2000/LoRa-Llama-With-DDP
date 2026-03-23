@@ -167,3 +167,6 @@ reference_paper/
 
 # Experiment Results
 experiment/
+
+# temporary files
+.tmp_*/

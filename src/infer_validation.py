@@ -154,8 +154,9 @@ def _run_variant(
         n_shots: int = int(prompt_cfg.get("num_few_shot_examples", 4))
         few_shot_examples = _build_few_shot_examples(train_df, n_shots)
 
-    # Take first N, then shard by rank
-    subset = val_df.head(n).reset_index(drop=True)
+    # Take first N (0 means all), then shard by rank
+    subset = val_df if n <= 0 else val_df.head(n)
+    subset = subset.reset_index(drop=True)
     if world_size > 1:
         chunk_size = (len(subset) + world_size - 1) // world_size
         start_idx = rank * chunk_size
@@ -336,8 +337,8 @@ def main() -> None:
     parser.add_argument(
         "--n",
         type=int,
-        default=10,
-        help="Number of validation examples to run (default: 10)",
+        default=0,
+        help="Number of validation examples to run (0 = all, default: 0)",
     )
     parser.add_argument(
         "--max_new_tokens",
@@ -422,7 +423,8 @@ def main() -> None:
     train_df = train_df.reset_index(drop=True)
     val_df = val_df.reset_index(drop=True)
     print(f"Dataset split → train={len(train_df)}  val={len(val_df)}")
-    print(f"Running first {args.n} validation examples for variants: {args.variants}")
+    n_desc = "all" if args.n <= 0 else str(args.n)
+    print(f"Running {n_desc} validation examples for variants: {args.variants}")
     print(f"Rank {args.rank} / world_size {args.world_size}")
     print(f"vLLM endpoint: {args.base_url}")
 

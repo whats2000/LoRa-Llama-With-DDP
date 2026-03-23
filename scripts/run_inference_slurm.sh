@@ -10,7 +10,7 @@
 #   sbatch scripts/run_inference_slurm.sh
 #
 # Optional environment overrides (via --export or before sbatch):
-#   N_EXAMPLES          Number of validation examples per variant (default: 30)
+#   N_EXAMPLES          Number of validation examples per variant (default: 0 = all)
 #   CHECKPOINT_ROOT     Root dir of adapter checkpoints (default: saved_models/checkpoint)
 #   OUTPUT_DIR          Where to write JSONL files (default: validation_outputs)
 #   TP_SIZE             Tensor-parallel GPUs per vLLM instance (default: 1)
@@ -57,7 +57,7 @@ mkdir -p "$TMPDIR"
 trap 'kill $(jobs -p) 2>/dev/null; rm -rf "$TMPDIR"' EXIT
 
 # ── Parameters (can be overridden via environment) ────────────────────────────
-N_EXAMPLES="${N_EXAMPLES:-30}"
+N_EXAMPLES="${N_EXAMPLES:-0}"
 CHECKPOINT_ROOT="${CHECKPOINT_ROOT:-saved_models/checkpoint}"
 OUTPUT_DIR="${OUTPUT_DIR:-validation_outputs}"
 TP_SIZE="${TP_SIZE:-1}"
@@ -262,7 +262,7 @@ echo "  vLLM parallel validation inference"
 echo "  Nodes     : $NNODES"
 echo "  TP size   : $TP_SIZE"
 echo "  Model     : $MODEL_ID"
-echo "  Examples  : $N_EXAMPLES per variant"
+echo "  Examples  : ${N_EXAMPLES:-0} per variant (0 = all)"
 echo "  Adapters  : $CHECKPOINT_ROOT"
 echo "  Output    : $OUTPUT_DIR"
 echo "  Timestamp : $TIMESTAMP"
