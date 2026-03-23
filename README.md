@@ -11,7 +11,7 @@
 ```bash
 # 1. 建立並啟用虛擬環境
 python -m venv .venv
-source .venv/bin/activate       # Windows: .venv\Scripts\activate
+source .venv/bin/activate
 
 # 2. 安裝相依套件
 pip install -r requirements.txt
@@ -63,27 +63,6 @@ source .venv/bin/activate       # Windows: .venv\Scripts\activate
 
 ---
 
-## 執行
-
-```bash
-# 執行單一實驗（零樣本、少樣本或思維鏈）
-python main.py --config configs/zero_shot.yaml
-python main.py --config configs/few_shot.yaml
-python main.py --config configs/cot.yaml
-
-# 使用 uv（無需手動啟用虛擬環境）
-uv run main.py --config configs/zero_shot.yaml
-uv run main.py --config configs/few_shot.yaml
-uv run main.py --config configs/cot.yaml
-```
-
-> [!TIP]
-> 使用 2 節點 × 8 GPU（共 16 張）時的有效批次大小：所有策略皆為 **768**。
-> zero_shot／few_shot：每 GPU 48（受限於 512 token 的 VRAM）× 梯度累積 1 × 16 = 768。CoT：每 GPU 24 × 梯度累積 2 × 16 = 768（較小的每 GPU 批次以容納 1024 token 的上下文長度）。
-> 可編輯 `configs/base.yaml` 中的 `training.batch_size` 與 `training.grad_accumulation_steps` 以適配您的硬體。
-
----
-
 ## 使用 Slurm 重現實驗
 
 `scripts/run_experience_slurm.sh` 提供了現成的 Slurm 作業腳本。
@@ -107,6 +86,11 @@ sbatch --account=<使用者或專案ID> scripts/run_infer_validation_slurm.sh
 - 日誌輸出至 `logs/slurm_<JOBID>.out` / `.err`
 
 若您的叢集使用不同的分區名稱或資源限制，請調整腳本內的 `#SBATCH` 指令。
+
+> [!TIP]
+> 使用 2 節點 × 8 GPU（共 16 張）時的有效批次大小：所有策略皆為 **768**。
+> zero_shot／few_shot：每 GPU 48（受限於 512 token 的 VRAM）× 梯度累積 1 × 16 = 768。CoT：每 GPU 24 × 梯度累積 2 × 16 = 768（較小的每 GPU 批次以容納 1024 token 的上下文長度）。
+> 可編輯 `configs/base.yaml` 中的 `training.batch_size` 與 `training.grad_accumulation_steps` 以適配您的硬體。
 
 ---
 

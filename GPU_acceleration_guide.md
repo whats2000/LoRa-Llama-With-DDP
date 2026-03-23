@@ -66,8 +66,12 @@ model, optimizer, train_loader, scheduler = accelerator.prepare(
 ### 使用 `nvnodetop`
 
 ```bash
+# 使用 pip 安裝 NVIDIA 計算機集群監測工具
 pip install nvnodetop
 nvnodetop        # 啟動後按 q 離開
+
+# 或使用 uv 工具啟動虛擬環境並運行 nvnodetopW
+uvx nvnodetop
 ```
 
 > [!IMPORTANT]
@@ -79,6 +83,9 @@ nvnodetop        # 啟動後按 q 離開
 # 查看 Slurm 規則、集群狀態與用戶工作負載狀態
 pip install sltop
 sltop             # 打開檢視器，一樣用完按 q 離開
+
+# 或你可以使用 uv 工具啟動虛擬環境並運行 sltop
+uvx sltop
 ```
 
 > [!TIP]
