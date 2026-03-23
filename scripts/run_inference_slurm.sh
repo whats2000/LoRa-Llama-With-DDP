@@ -6,14 +6,8 @@
 # infer_validation.py clients in parallel.  Each client processes a data
 # shard, and results are merged after all ranks complete.
 #
-# Single-node / single-GPU mode (default):
+# Default (2 nodes × 8 GPUs = 16 GPUs):
 #   sbatch scripts/run_inference_slurm.sh
-#
-# Multi-GPU on one node:
-#   sbatch --gres=gpu:8 scripts/run_inference_slurm.sh
-#
-# Multi-node:
-#   sbatch --nodes=2 --gres=gpu:8 scripts/run_inference_slurm.sh
 #
 # Optional environment overrides (via --export or before sbatch):
 #   N_EXAMPLES          Number of validation examples per variant (default: 30)
@@ -27,12 +21,12 @@
 # ─────────────────────────────────────────────────────────────────────────────
 
 #SBATCH --job-name=vllm-infer
-#SBATCH --partition=dev
-#SBATCH --nodes=1
+#SBATCH --partition=normal
+#SBATCH --nodes=2
 #SBATCH --ntasks-per-node=1
-#SBATCH --gres=gpu:1
-#SBATCH --cpus-per-task=8
-#SBATCH --mem=40G
+#SBATCH --gres=gpu:8
+#SBATCH --cpus-per-task=64
+#SBATCH --mem=0
 #SBATCH --time=02:00:00
 #SBATCH --output=logs/slurm_%j.out
 #SBATCH --error=logs/slurm_%j.err

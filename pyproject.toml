@@ -3,7 +3,7 @@ name = "medical-question-answering"
 version = "0.1.0"
 description = "Fine-tuning a question-answering model on the PathoQA dataset."
 readme = "README.md"
-requires-python = "==3.11.*"
+requires-python = "==3.12.*"
 dependencies = [
     "torch>=2.0",
     "transformers>=4.40",
