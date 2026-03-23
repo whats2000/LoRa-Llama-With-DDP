@@ -25,7 +25,6 @@
 #SBATCH --time=01:00:00
 #SBATCH --output=logs/slurm_%j.out
 #SBATCH --error=logs/slurm_%j.err
-#SBATCH --account=GOV108018
 
 set -euo pipefail
 
