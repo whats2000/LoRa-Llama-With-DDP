@@ -110,6 +110,15 @@ sbatch --account=<使用者或專案ID> scripts/run_infer_validation_slurm.sh
 
 ---
 
+## 延伸閱讀
+
+| 文件 | 說明 |
+|------|------|
+| [GPU_acceleration_guide.md](GPU_acceleration_guide.md) | 高效 GPU 加速運算指南 — 框架選擇、資源監測、多節點擴展、並行模式與多進程資料讀取 |
+| [GPU_inference_guide.md](GPU_inference_guide.md) | 高效 GPU 推理加速指南 — 推理引擎選擇、服務化部署、多節點分散推理與結果收集 |
+
+---
+
 ## 專案結構
 
 ```
