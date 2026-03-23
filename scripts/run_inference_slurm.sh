@@ -59,7 +59,7 @@ trap 'kill $(jobs -p) 2>/dev/null; rm -rf "$TMPDIR"' EXIT
 # ── Parameters (can be overridden via environment) ────────────────────────────
 N_EXAMPLES="${N_EXAMPLES:-0}"
 CHECKPOINT_ROOT="${CHECKPOINT_ROOT:-saved_models/checkpoint}"
-OUTPUT_DIR="${OUTPUT_DIR:-validation_outputs}"
+OUTPUT_DIR="${OUTPUT_DIR:-outputs/validation}"
 TP_SIZE="${TP_SIZE:-1}"
 MAX_MODEL_LEN="${MAX_MODEL_LEN:-2048}"
 GPU_MEM_UTIL="${GPU_MEM_UTIL:-0.90}"

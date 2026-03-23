@@ -27,13 +27,13 @@ Usage (single vLLM server already running):
     python src/infer_validation.py \\
         --base configs/base.yaml \\
         --checkpoint_root saved_models/checkpoint \\
-        --output_dir validation_outputs \\
+        --output_dir outputs/validation \\
         --n 30 \\
         --base_url http://localhost:8000/v1
 
 Merge mode (after all ranks finish):
     python src/infer_validation.py --merge \\
-        --output_dir validation_outputs \\
+        --output_dir outputs/validation \\
         --timestamp 20260323_120000 \\
         --variants zero_shot few_shot cot
 """
@@ -331,8 +331,8 @@ def main() -> None:
     )
     parser.add_argument(
         "--output_dir",
-        default="validation_outputs",
-        help="Directory to write JSONL files into (default: validation_outputs)",
+        default="outputs/validation",
+        help="Directory to write JSONL files into (default: outputs/validation)",
     )
     parser.add_argument(
         "--n",
@@ -428,6 +428,7 @@ def main() -> None:
     print(f"Rank {args.rank} / world_size {args.world_size}")
     print(f"vLLM endpoint: {args.base_url}")
 
+    os.makedirs(args.output_dir, exist_ok=True)
     client = OpenAI(base_url=args.base_url, api_key="unused")
 
     for variant in args.variants:
