@@ -50,7 +50,6 @@ from typing import Any
 import pandas as pd
 import yaml
 from openai import OpenAI
-from sklearn.model_selection import train_test_split
 from tqdm import tqdm
 
 # ── Path helpers ──────────────────────────────────────────────────────────────
@@ -60,7 +59,7 @@ REPO_ROOT = os.path.dirname(SCRIPT_DIR)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-from src.data import OPTION_LABELS, extract_answer_from_text, format_prompt  # noqa: E402
+from src.data import OPTION_LABELS, extract_answer_from_text, format_prompt, load_datasets  # noqa: E402
 
 
 # ── Config helpers ─────────────────────────────────────────────────────────────
@@ -414,14 +413,7 @@ def main() -> None:
     base_cfg = _load_yaml(args.base)
     data_cfg = base_cfg["data"]
 
-    df = pd.read_csv(args.dataset)
-    train_df, val_df = train_test_split(
-        df,
-        test_size=float(data_cfg["val_ratio"]),
-        random_state=int(data_cfg["seed"]),
-    )
-    train_df = train_df.reset_index(drop=True)
-    val_df = val_df.reset_index(drop=True)
+    train_df, val_df = load_datasets(data_cfg, args.dataset)
     print(f"Dataset split → train={len(train_df)}  val={len(val_df)}")
     n_desc = "all" if args.n <= 0 else str(args.n)
     print(f"Running {n_desc} validation examples for variants: {args.variants}")
