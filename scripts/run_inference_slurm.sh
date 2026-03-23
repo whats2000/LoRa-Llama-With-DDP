@@ -29,7 +29,19 @@
 set -euo pipefail
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
-WORKDIR="/work/whats2000/generative-artificial-intelligence-2026/HW1-Question-Answering"
+if [ -z "${WORKDIR:-}" ]; then
+    if [ -n "${SLURM_SUBMIT_DIR:-}" ]; then
+        # SLURM environment: use the directory recorded by SLURM at sbatch submission
+        WORKDIR="${SLURM_SUBMIT_DIR}"
+    elif [ -n "${BASH_SOURCE[0]:-}" ] && [ -f "${BASH_SOURCE[0]}" ]; then
+        # Local execution: derive from the script's own location (one level up)
+        WORKDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+        WORKDIR="$(dirname "${WORKDIR}")"
+    else
+        echo "ERROR: Cannot auto-detect WORKDIR. Please set it manually before running this script." >&2
+        exit 1
+    fi
+fi
 cd "$WORKDIR"
 
 source .venv/bin/activate
