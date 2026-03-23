@@ -1,9 +1,13 @@
-"""infer_validation.py — quick qualitative evaluation on the first N validation examples.
+"""infer_validation.py — vLLM-based parallel validation-set inference.
 
-For each of the three fine-tuned variants (zero_shot, few_shot, cot) this script:
-  1. Loads the saved LoRA adapter from ``saved_models/checkpoint/<variant>/``.
-  2. Runs greedy generation on the first ``--n`` validation rows.
-  3. Writes one JSONL file per variant to ``<output_dir>/<variant>_validation.jsonl``.
+For each fine-tuned variant (zero_shot, few_shot, cot) this script:
+  1. Connects to a running vLLM server that serves the LoRA adapters.
+  2. Shards the first ``--n`` validation rows by ``--rank`` / ``--world_size``.
+  3. Sends concurrent requests via ThreadPoolExecutor.
+  4. Writes one JSONL file per variant (with rank suffix when world_size > 1).
+
+A separate ``--merge`` mode collects per-rank shards into a single JSONL per
+variant and re-computes accuracy.
 
 Each JSONL line contains:
   {
@@ -19,30 +23,35 @@ Each JSONL line contains:
     "correct":     true | false
   }
 
-Usage (single GPU):
-    python scripts/infer_validation.py \\
+Usage (single vLLM server already running):
+    python src/infer_validation.py \\
         --base configs/base.yaml \\
         --checkpoint_root saved_models/checkpoint \\
         --output_dir validation_outputs \\
-        --n 10
+        --n 30 \\
+        --base_url http://localhost:8000/v1
 
-The script is intentionally single-process / single-GPU so it is cheap to run
-as a quick sanity-check before a full evaluation job.
+Merge mode (after all ranks finish):
+    python src/infer_validation.py --merge \\
+        --output_dir validation_outputs \\
+        --timestamp 20260323_120000 \\
+        --variants zero_shot few_shot cot
 """
 
 import argparse
 import copy
+import glob
 import json
 import os
 import sys
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any
 
 import pandas as pd
-import torch
 import yaml
-from peft import PeftModel
+from openai import OpenAI
 from sklearn.model_selection import train_test_split
-from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+from tqdm import tqdm
 
 # ── Path helpers ──────────────────────────────────────────────────────────────
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -51,9 +60,7 @@ REPO_ROOT = os.path.dirname(SCRIPT_DIR)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-from src.data import OPTION_LABELS, extract_answer_from_token_ids, format_prompt, get_option_token_ids  # noqa: E402
-
-
+from src.data import OPTION_LABELS, extract_answer_from_text, format_prompt  # noqa: E402
 
 
 # ── Config helpers ─────────────────────────────────────────────────────────────
@@ -91,45 +98,29 @@ def _build_few_shot_examples(train_df: pd.DataFrame, n: int) -> list[pd.Series]:
     return [train_df.iloc[i] for i in indices]
 
 
-# ── Model loader ──────────────────────────────────────────────────────────────
+# ── vLLM API call helper ─────────────────────────────────────────────────────
 
-def _load_model(model_id: str, adapter_path: str, use_4bit: bool = False):
-    """Load the base causal-LM and attach a saved LoRA adapter (inference only)."""
-    tokenizer = AutoTokenizer.from_pretrained(adapter_path)
-    if tokenizer.pad_token is None:
-        tokenizer.pad_token = tokenizer.eos_token
-
-    bnb_config = (
-        BitsAndBytesConfig(
-            load_in_4bit=True,
-            bnb_4bit_quant_type="nf4",
-            bnb_4bit_compute_dtype=torch.float16,
-        )
-        if use_4bit
-        else None
+def _call_vllm(
+    client: OpenAI,
+    model_name: str,
+    prompt: str,
+    max_tokens: int,
+) -> str:
+    """Send a single completion request to the vLLM server and return the text."""
+    response = client.completions.create(
+        model=model_name,
+        prompt=prompt,
+        max_tokens=max_tokens,
+        temperature=0.0,
     )
-
-    base_model = AutoModelForCausalLM.from_pretrained(
-        model_id,
-        quantization_config=bnb_config,
-        device_map="auto" if use_4bit else None,
-        torch_dtype=torch.bfloat16 if not use_4bit else None,
-    )
-
-    model: PeftModel = PeftModel.from_pretrained(base_model, adapter_path)
-    model.eval()
-
-    if not use_4bit:
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-        model = model.to(device)
-
-    return model, tokenizer
+    return response.choices[0].text
 
 
 # ── Per-variant inference ─────────────────────────────────────────────────────
 
 def _run_variant(
     strategy: str,
+    client: OpenAI,
     base_config_path: str,
     checkpoint_root: str,
     train_df: pd.DataFrame,
@@ -137,13 +128,12 @@ def _run_variant(
     n: int,
     output_dir: str,
     max_new_tokens_override: int | None,
+    rank: int,
+    world_size: int,
+    timestamp: str | None,
+    max_workers: int,
 ) -> None:
-    print(f"\n{'=' * 60}")
-    print(f"  Variant: {strategy}  (first {n} validation examples)")
-    print(f"{'=' * 60}")
-
     cfg = _build_config(base_config_path, strategy)
-    model_cfg = cfg["model"]
     prompt_cfg = cfg["prompting"]
     train_cfg = cfg["training"]
 
@@ -152,18 +142,11 @@ def _run_variant(
         print(f"  [WARN] Adapter not found at {adapter_path!r} — skipping variant.")
         return
 
-    model_id: str = str(model_cfg["model_id"])
-    use_4bit: bool = bool(model_cfg.get("use_4bit", False))
     max_new_tokens: int = (
         max_new_tokens_override
         if max_new_tokens_override is not None
         else int(train_cfg.get("max_new_tokens", 256))
     )
-
-    print(f"  Loading adapter from {adapter_path!r} …")
-    model, tokenizer = _load_model(model_id, adapter_path, use_4bit=use_4bit)
-    device = next(model.parameters()).device
-    print(f"  Model on device: {device}")
 
     # Few-shot examples (only needed for few_shot strategy)
     few_shot_examples: list[pd.Series] | None = None
@@ -171,57 +154,56 @@ def _run_variant(
         n_shots: int = int(prompt_cfg.get("num_few_shot_examples", 4))
         few_shot_examples = _build_few_shot_examples(train_df, n_shots)
 
+    # Take first N, then shard by rank
     subset = val_df.head(n).reset_index(drop=True)
+    if world_size > 1:
+        chunk_size = (len(subset) + world_size - 1) // world_size
+        start_idx = rank * chunk_size
+        end_idx = min(start_idx + chunk_size, len(subset))
+        subset = subset.iloc[start_idx:end_idx].reset_index(drop=True)
 
-    # Option token ID variants — identical to _evaluate in train.py.
-    option_ids_per_label: list[list[int]] = get_option_token_ids(tokenizer)
-    pad_id: int = tokenizer.pad_token_id or tokenizer.eos_token_id
+    print(f"\n{'=' * 60}")
+    print(f"  Variant: {strategy}  (rank {rank}/{world_size}, {len(subset)} examples)")
+    print(f"{'=' * 60}")
 
-    results: list[dict] = []
-    tokenizer.padding_side = "left"
+    if len(subset) == 0:
+        print("  No examples for this rank — skipping.")
+        return
 
-    with torch.no_grad():
-        for _, row in subset.iterrows():
-            prompt: str = format_prompt(row, prompt_cfg, examples=few_shot_examples)
+    # The vLLM model name is the adapter name registered at server startup
+    model_name = strategy
 
-            enc = tokenizer(
-                prompt,
-                truncation=True,
-                max_length=int(train_cfg.get("max_length", 512)),
-                return_tensors="pt",
+    # Build all prompts first
+    prompts: list[str] = []
+    for _, row in subset.iterrows():
+        prompts.append(format_prompt(row, prompt_cfg, examples=few_shot_examples))
+
+    # Concurrent API calls
+    results: list[dict | None] = [None] * len(subset)
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures: dict = {}
+        for i, (_, row) in enumerate(subset.iterrows()):
+            future = executor.submit(
+                _call_vllm, client, model_name, prompts[i], max_new_tokens,
             )
-            input_ids = enc["input_ids"].to(device)
-            attention_mask = enc["attention_mask"].to(device)
-            prompt_len: int = input_ids.shape[1]
+            futures[future] = i
 
-            # Greedy generation — identical to _evaluate in train.py.
-            gen_ids = model.generate(
-                input_ids=input_ids,
-                attention_mask=attention_mask,
-                max_new_tokens=max_new_tokens,
-                do_sample=False,
-                temperature=None,
-                top_p=None,
-                pad_token_id=pad_id,
-                eos_token_id=tokenizer.eos_token_id,
-            )
+        for future in tqdm(
+            as_completed(futures),
+            total=len(futures),
+            desc=f"  {strategy} rank={rank}",
+        ):
+            i = futures[future]
+            row = subset.iloc[i]
+            raw_output: str = future.result()
 
-            new_token_ids: list[int] = gen_ids[0, prompt_len:].tolist()
-            raw_output: str = tokenizer.decode(new_token_ids, skip_special_tokens=True)
-
-            # Reverse scan new tokens; fall back to full sequence if not found.
-            pred_index: int | None = extract_answer_from_token_ids(
-                new_token_ids, option_ids_per_label
-            )
-            if pred_index is None:
-                pred_index = extract_answer_from_token_ids(
-                    gen_ids[0].tolist(), option_ids_per_label
-                )
+            pred_index: int | None = extract_answer_from_text(raw_output)
             if pred_index is None:
                 pred_index = 0  # last-resort fallback
             gold_index: int = int(row["ans"])
 
-            results.append({
+            results[i] = {
                 "question_id": int(row["question_id"]),
                 "question": str(row["question"]),
                 "options": {
@@ -232,39 +214,103 @@ def _run_variant(
                 },
                 "gold_label": OPTION_LABELS[gold_index],
                 "gold_index": gold_index,
-                "prompt": prompt,
+                "prompt": prompts[i],
                 "raw_output": raw_output,
                 "pred_label": OPTION_LABELS[pred_index],
                 "pred_index": pred_index,
                 "correct": pred_index == gold_index,
-            })
+            }
 
-            status = "✓" if results[-1]["correct"] else "✗"
-            label_str = results[-1]["pred_label"]
-            print(f"  [{status}] Q{results[-1]['question_id']:>4}  pred={label_str}  gold={results[-1]['gold_label']}")
+            status = "✓" if results[i]["correct"] else "✗"  # type: ignore[index]
+            label_str = results[i]["pred_label"]  # type: ignore[index]
+            gold_str = results[i]["gold_label"]  # type: ignore[index]
+            qid = results[i]["question_id"]  # type: ignore[index]
+            print(f"  [{status}] Q{qid:>4}  pred={label_str}  gold={gold_str}")
 
     # ── Write JSONL ──────────────────────────────────────────────────────────
     os.makedirs(output_dir, exist_ok=True)
-    out_path = os.path.join(output_dir, f"{strategy}_validation.jsonl")
+    if world_size > 1 and timestamp:
+        out_path = os.path.join(
+            output_dir, f"{strategy}_validation_{timestamp}_rank{rank}.jsonl"
+        )
+    else:
+        out_path = os.path.join(output_dir, f"{strategy}_validation.jsonl")
+
     with open(out_path, "w", encoding="utf-8") as fh:
         for record in results:
             fh.write(json.dumps(record, ensure_ascii=False) + "\n")
 
-    correct = sum(r["correct"] for r in results)
-    print(f"\n  Accuracy on first {n}: {correct}/{n} = {correct / n:.1%}")
+    correct = sum(1 for r in results if r and r["correct"])
+    total = len(results)
+    print(f"\n  Accuracy: {correct}/{total} = {correct / total:.1%}")
     print(f"  Output written → {out_path}")
 
-    # Free GPU memory before loading the next variant
-    del model
-    if torch.cuda.is_available():
-        torch.cuda.empty_cache()
+
+# ── Merge mode ────────────────────────────────────────────────────────────────
+
+def _merge_results(
+    output_dir: str,
+    timestamp: str,
+    variants: list[str],
+    cleanup: bool = False,
+) -> None:
+    """Merge per-rank shard files into a single JSONL per variant."""
+    print(f"\n{'=' * 60}")
+    print(f"  Merging results  (timestamp={timestamp})")
+    print(f"{'=' * 60}")
+
+    for variant in variants:
+        pattern = os.path.join(
+            output_dir, f"{variant}_validation_{timestamp}_rank*.jsonl"
+        )
+        shard_files = sorted(glob.glob(pattern))
+        if not shard_files:
+            print(f"  [{variant}] No shard files found for pattern: {pattern}")
+            continue
+
+        all_records: list[dict] = []
+        for fpath in shard_files:
+            with open(fpath, encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if line:
+                        all_records.append(json.loads(line))
+
+        # Deduplicate by question_id and sort
+        seen: set[int] = set()
+        unique: list[dict] = []
+        all_records.sort(key=lambda r: r["question_id"])
+        for r in all_records:
+            qid = r["question_id"]
+            if qid not in seen:
+                seen.add(qid)
+                unique.append(r)
+
+        merged_path = os.path.join(output_dir, f"{variant}_validation.jsonl")
+        with open(merged_path, "w", encoding="utf-8") as fh:
+            for record in unique:
+                fh.write(json.dumps(record, ensure_ascii=False) + "\n")
+
+        correct = sum(1 for r in unique if r.get("correct"))
+        total = len(unique)
+        acc = correct / total if total else 0
+        print(
+            f"  [{variant}] Merged {len(shard_files)} shards → "
+            f"{total} examples, accuracy {correct}/{total} = {acc:.1%}"
+        )
+        print(f"  Output → {merged_path}")
+
+        if cleanup:
+            for fpath in shard_files:
+                os.remove(fpath)
+            print(f"  Cleaned up {len(shard_files)} shard files.")
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Quick validation-set inference for zero_shot / few_shot / cot adapters."
+        description="vLLM-based parallel validation inference for LoRA adapters.",
     )
     parser.add_argument(
         "--base",
@@ -306,12 +352,64 @@ def main() -> None:
         choices=["zero_shot", "few_shot", "cot"],
         help="Which variants to run (default: all three)",
     )
+    # ── vLLM / parallel arguments ────────────────────────────────────────────
+    parser.add_argument(
+        "--base_url",
+        default="http://localhost:8000/v1",
+        help="vLLM OpenAI-compatible API base URL (default: http://localhost:8000/v1)",
+    )
+    parser.add_argument(
+        "--rank",
+        type=int,
+        default=0,
+        help="Global rank of this worker (default: 0)",
+    )
+    parser.add_argument(
+        "--world_size",
+        type=int,
+        default=1,
+        help="Total number of parallel workers (default: 1)",
+    )
+    parser.add_argument(
+        "--timestamp",
+        default=None,
+        help="Unified timestamp for associating shard files from the same run",
+    )
+    parser.add_argument(
+        "--max_workers",
+        type=int,
+        default=16,
+        help="ThreadPoolExecutor concurrency for API calls (default: 16)",
+    )
+    # ── Merge mode ───────────────────────────────────────────────────────────
+    parser.add_argument(
+        "--merge",
+        action="store_true",
+        help="Merge per-rank shard files instead of running inference",
+    )
+    parser.add_argument(
+        "--cleanup",
+        action="store_true",
+        help="Delete shard files after merging",
+    )
     args = parser.parse_args()
 
     # Resolve paths relative to repo root so the script can be invoked from any cwd.
     os.chdir(REPO_ROOT)
 
-    # ── Load and split dataset ────────────────────────────────────────────────
+    # ── Merge mode ───────────────────────────────────────────────────────────
+    if args.merge:
+        if not args.timestamp:
+            parser.error("--merge requires --timestamp")
+        _merge_results(
+            output_dir=args.output_dir,
+            timestamp=args.timestamp,
+            variants=args.variants,
+            cleanup=args.cleanup,
+        )
+        return
+
+    # ── Inference mode ───────────────────────────────────────────────────────
     base_cfg = _load_yaml(args.base)
     data_cfg = base_cfg["data"]
 
@@ -325,10 +423,15 @@ def main() -> None:
     val_df = val_df.reset_index(drop=True)
     print(f"Dataset split → train={len(train_df)}  val={len(val_df)}")
     print(f"Running first {args.n} validation examples for variants: {args.variants}")
+    print(f"Rank {args.rank} / world_size {args.world_size}")
+    print(f"vLLM endpoint: {args.base_url}")
+
+    client = OpenAI(base_url=args.base_url, api_key="unused")
 
     for variant in args.variants:
         _run_variant(
             strategy=variant,
+            client=client,
             base_config_path=args.base,
             checkpoint_root=args.checkpoint_root,
             train_df=train_df,
@@ -336,6 +439,10 @@ def main() -> None:
             n=args.n,
             output_dir=args.output_dir,
             max_new_tokens_override=args.max_new_tokens,
+            rank=args.rank,
+            world_size=args.world_size,
+            timestamp=args.timestamp,
+            max_workers=args.max_workers,
         )
 
     print("\nAll variants done.")

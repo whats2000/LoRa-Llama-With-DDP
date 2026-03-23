@@ -93,7 +93,7 @@ run_experiment() {
 # ── Skip flags — set to 1 to skip that experiment ────────────────────────────
 SKIP_ZERO_SHOT=0
 SKIP_FEW_SHOT=0
-SKIP_COT=0
+SKIP_COT=1
 
 # ── Predict-only mode — set to 1 to skip training and run inference only ──────
 # Loads the saved adapter from paths.saved_models defined in each config.

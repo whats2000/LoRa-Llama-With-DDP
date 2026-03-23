@@ -1,5 +1,7 @@
 """data.py — dataset loading, splitting, and prompt formatting driven by config."""
 
+import re
+
 import pandas as pd
 from sklearn.model_selection import train_test_split
 import torch
@@ -62,6 +64,31 @@ def extract_answer_from_token_ids(
     for tid in reversed(token_ids):
         if tid in flat_to_idx:
             return flat_to_idx[tid]
+    return None
+
+
+def extract_answer_from_text(text: str) -> int | None:
+    """Extract the predicted answer label (A/B/C/D) from generated text.
+
+    Searches for ``Answer: X`` patterns first (last match), then falls back
+    to the last standalone A/B/C/D letter.  This mirrors the reverse-scan
+    behavior of :func:`extract_answer_from_token_ids` but operates on the
+    decoded string returned by vLLM's OpenAI-compatible API.
+
+    Returns:
+        The 0-based label index (0 = A … 3 = D), or ``None`` if no answer
+        was found.
+    """
+    # Priority 1: explicit "Answer: X" pattern (last occurrence)
+    matches = re.findall(r"[Aa]nswer\s*:\s*([A-Da-d])", text)
+    if matches:
+        return OPTION_LABELS.index(matches[-1].upper())
+
+    # Priority 2: last standalone A/B/C/D (word boundary)
+    matches = re.findall(r"\b([A-Da-d])\b", text)
+    if matches:
+        return OPTION_LABELS.index(matches[-1].upper())
+
     return None
 
 
