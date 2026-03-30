@@ -264,10 +264,10 @@ def _evaluate(
                 _total_t += 1
 
     # All-reduce across ranks so every rank (especially rank 0) has global totals.
-    accelerator.reduce(_correct_t, reduction="sum")
-    accelerator.reduce(_total_t, reduction="sum")
-    accelerator.reduce(_loss_t, reduction="sum")
-    accelerator.reduce(_batches_t, reduction="sum")
+    _correct_t = accelerator.reduce(_correct_t, reduction="sum")
+    _total_t = accelerator.reduce(_total_t, reduction="sum")
+    _loss_t = accelerator.reduce(_loss_t, reduction="sum")
+    _batches_t = accelerator.reduce(_batches_t, reduction="sum")
 
     global_acc: float = (
         _correct_t.item() / _total_t.item() if _total_t.item() > 0 else 0.0
