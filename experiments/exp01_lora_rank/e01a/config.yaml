@@ -1,0 +1,18 @@
+# ── exp01 / e01a — LoRA rank sweep cell: r=8, alpha=16 ────────────────────────
+# Overrides configs/base.yaml. Varies ONLY lora.r / lora_alpha (alpha = 2*r).
+# Fixed across the sweep: zero_shot strategy, lr=5e-5, 10 epochs, dropout=0.05,
+# effective batch 768 (8 GPU × batch 48 × grad_accum 2).
+paths:
+  saved_models: "experiments/exp01_lora_rank/e01a/saved_models"
+  output_csv: "experiments/exp01_lora_rank/e01a/outputs/zero_shot_submission.csv"
+
+lora:
+  r: 8
+  lora_alpha: 16
+
+training:
+  batch_size: 48
+  grad_accumulation_steps: 2   # 8 GPU × 48 × 2 = 768 effective (matches baseline)
+
+prompting:
+  strategy: "zero_shot"

@@ -1,0 +1,19 @@
+# ── exp01 / e01d — LoRA rank sweep cell: r=64, alpha=128 (BASELINE ANCHOR) ─────
+# Overrides configs/base.yaml. Varies ONLY lora.r / lora_alpha (alpha = 2*r).
+# This cell reproduces the baseline LoRA capacity (r=64/alpha=128) at matched
+# effective batch 768, serving as the control row for the sweep.
+# Fixed across the sweep: zero_shot strategy, lr=5e-5, 10 epochs, dropout=0.05.
+paths:
+  saved_models: "experiments/exp01_lora_rank/e01d/saved_models"
+  output_csv: "experiments/exp01_lora_rank/e01d/outputs/zero_shot_submission.csv"
+
+lora:
+  r: 64
+  lora_alpha: 128
+
+training:
+  batch_size: 48
+  grad_accumulation_steps: 2   # 8 GPU × 48 × 2 = 768 effective (matches baseline)
+
+prompting:
+  strategy: "zero_shot"
