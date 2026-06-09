@@ -1,0 +1,19 @@
+# ── exp02 / e02a — rank push: r=128, alpha=256 (gamma = alpha/r = 2, constant) ──
+# Overrides configs/base.yaml. One knob: lora.r (alpha=2r holds effective scaling
+# gamma=2 fixed, so this isolates capacity — continues exp01's monotonic-rank result
+# past r=128). Vanilla LoRA (no rsLoRA; with alpha=2r, gamma is already rank-stable).
+# zero_shot; effective batch 768 (8 GPU × 48 × accum 2). Judged on Kaggle test.
+paths:
+  saved_models: "experiments/exp02_rank_scaling/e02a/saved_models"
+  output_csv: "experiments/exp02_rank_scaling/e02a/outputs/zero_shot_submission.csv"
+
+lora:
+  r: 128
+  lora_alpha: 256
+
+training:
+  batch_size: 48
+  grad_accumulation_steps: 2
+
+prompting:
+  strategy: "zero_shot"

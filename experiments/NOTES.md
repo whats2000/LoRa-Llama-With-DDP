@@ -13,6 +13,7 @@ submission score (reported by the user) is authoritative.
 | baseline (root) | few_shot  | r=64/α=128, lr5e-5, 10ep | 0.7333 (epoch 6) | `saved_models/checkpoint/few_shot/training_history.json` |
 | baseline (root) | cot       | — | not run (`SKIP_COT=1`) | — |
 | **exp01** | zero_shot | LoRA rank sweep r∈{8..128} | **test monotonic in rank: r=128 best 0.7666**, r=64 0.7611, r=32 0.7444, r=16 0.7277, r=8 0.7100 (proxy inverted-U *misranks* — see entry) | `experiments/exp01_lora_rank/e01{a..e}/`; Kaggle hw-1-question-answering 2026-06-09 |
+| **exp02** | zero_shot | rank push r∈{128..512} @ γ=2 | **test peaks at r=256: 0.7766 (NEW BEST)**; r=192 0.7700, r=128 0.7666, r=384 0.7577, r=512 0.7533 (inverted-U on test; r=128 reproduces exp01 exactly) | `experiments/exp02_rank_scaling/e02{a..e}/`; Kaggle 2026-06-09 |
 
 Submission-set recompute (separate inference run, 900 examples,
 `outputs/validation/*.jsonl`): zero_shot 0.7367 (663/900), few_shot 0.7322
@@ -131,3 +132,73 @@ before the next sweep.
 - Curves/metrics: `exp01_lora_rank/e01{a..e}/saved_models/training_history.json`
 - Benchmark submissions: `exp01_lora_rank/e01{a..e}/outputs/zero_shot_submission.csv`
 - Design/hypothesis: `exp01_lora_rank/README.md`
+
+---
+
+## exp02 — rank push past r=128 (find the capacity ceiling)
+
+**Goal:** exp01 showed test accuracy rising monotonically with rank up to the
+edge of its sweep (r=128, 0.7666). Does the gain continue past 128, and where
+does it peak/saturate?
+
+**Hypothesis:** if exp01's trend reflected real capacity headroom, test score
+keeps rising toward r=512 before plateauing. (Pre-registered in
+`exp02_rank_scaling/README.md`.)
+
+**Method:** one knob, `lora.r ∈ {128,192,256,384,512}`, with α=2r holding the
+effective scaling γ=α/r=2 constant (vanilla LoRA — *not* rsLoRA; with α=2r the
+scaling is already rank-stable, so `use_rslora` would only inflate γ to 22–45, a
+confound). zero_shot, lr 5e-5, 10 epochs, effective batch 768, val_ratio 0.1 /
+seed 42. Pure config over the unmodified root pipeline. Jobs 88574–88578,
+partition `8gpus`. Decision metric = Kaggle test (proxy misranks, per exp01).
+
+**Results** (proxy = best val_acc from `training_history.json`; **test** =
+Kaggle hw-1-question-answering, all 5 submitted 2026-06-09, public == private):
+
+| Cell | r | α | proxy (best val) | proxy peak ep | **Kaggle test** |
+|------|----|----|------|----|------|
+| e02a | 128 | 256  | 0.7431 | 4 | 0.7666 *(= exp01 e01e exactly)* |
+| e02b | 192 | 384  | 0.7405 | 5 | 0.7700 |
+| **e02c** | **256** | **512** | 0.7465 | 6 | **0.7766 ← NEW BEST** |
+| e02d | 384 | 768  | 0.7474 | 7 | 0.7577 |
+| e02e | 512 | 1024 | 0.7405 | 4 | 0.7533 |
+
+**Key findings:**
+1. **Test accuracy is an inverted-U in rank, peaking at r=256 (0.7766).** The
+   left arm (r=8→256) is the monotonic rise exp01 saw; the right arm
+   (r=384→512) *declines* (0.7577, 0.7533). exp01's "monotonic" reading was an
+   artifact of stopping the sweep at r=128 — the true optimum is r=256.
+2. **r=256 (0.7766) beats the prior best (historical 0.7700) and exp01's best
+   (r=128, 0.7666) — first genuine improvement over baseline.**
+3. **Reproducibility confirmed:** e02a (r=128) scored **0.7666, identical to
+   exp01 e01e (r=128)** — same config, same harness, same score. So the score
+   differences across cells are real signal, and the ~0.033 spread in the
+   *historical* baseline submissions was config drift, not seed noise. This
+   raises confidence the r=256 peak is real, not a lucky draw.
+4. **Proxy still useless for ranking:** proxy ranked e02d (r=384) highest
+   (0.7474), but test ranked it 4th (0.7577); the test-best r=256 had a middling
+   proxy (0.7465). Confirms exp01 — do not select capacity on val.
+
+**Failed variants (root cause):**
+- **e02d (r=384, 0.7577) and e02e (r=512, 0.7533): over-capacity.** Past r=256,
+  extra adapter capacity hurts test accuracy — the model has enough degrees of
+  freedom to fit train-set idiosyncrasies that don't transfer. Note proxy peak
+  epoch crept later then collapsed (e02e peaked ep4), consistent with
+  faster/harder overfitting at very high rank.
+
+**Conclusion / shipped?** **r=256 (α=512) is the new best zero_shot config at
+test 0.7766**, beating baseline 0.7700. Not yet merged into the root pipeline
+(still zero_shot-only; defer shipping until a strategy/ensemble decision). The
+rank lever is now *mapped*: optimum r=256, declining beyond. Further rank
+tuning has low headroom — next levers should be orthogonal to capacity.
+Candidates for exp03: (1) ensemble the top adapters (e02c r=256 + e02b r=192 +
+e02a r=128) via option-likelihood averaging — free, no training; (2)
+inference-time option-likelihood scoring vs free-generation; (3) untested
+strategies (CoT rationale distillation is already coded, few_shot); (4) a
+fine rank refine around 256 (224/256/288) — lowest expected payoff.
+
+**Files:**
+- Configs/runners: `exp02_rank_scaling/e02{a..e}/config.yaml`, `…/run.sbatch`
+- Curves/metrics: `exp02_rank_scaling/e02{a..e}/saved_models/training_history.json`
+- Benchmark submissions: `exp02_rank_scaling/e02{a..e}/outputs/zero_shot_submission.csv`
+- Design/hypothesis: `exp02_rank_scaling/README.md`

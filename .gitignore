@@ -170,3 +170,6 @@ experiment/
 
 # temporary files
 .tmp_*/
+
+# Experiment-level one-off helper scripts (collectors, etc.)
+experiments/**/_*.sh
