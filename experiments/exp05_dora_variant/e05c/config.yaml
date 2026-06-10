@@ -1,0 +1,15 @@
+# ── exp05 / e05c — DoRA (weight-decomposed LoRA) r=128, alpha=256, zero_shot ──
+# Head-to-head vs exp02's vanilla LoRA at the same rank (e02c r256=0.7766, etc).
+# DoRA loads normally onto the base -> ensemble-compatible. Effective batch 768.
+paths:
+  saved_models: "experiments/exp05_dora_variant/e05c/saved_models"
+  output_csv: "experiments/exp05_dora_variant/e05c/outputs/zero_shot_submission.csv"
+lora:
+  r: 128
+  lora_alpha: 256
+  use_dora: true
+training:
+  batch_size: 8            # DoRA is memory-heavy; smaller per-GPU batch
+  grad_accumulation_steps: 12  # 8 GPU × 8 × 12 = 768 effective (unchanged)
+prompting:
+  strategy: "zero_shot"

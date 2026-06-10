@@ -16,6 +16,7 @@ submission score (reported by the user) is authoritative.
 | **exp02** | zero_shot | rank push r∈{128..512} @ γ=2 | **test peaks at r=256: 0.7766 (NEW BEST)**; r=192 0.7700, r=128 0.7666, r=384 0.7577, r=512 0.7533 (inverted-U on test; r=128 reproduces exp01 exactly) | `experiments/exp02_rank_scaling/e02{a..e}/`; Kaggle 2026-06-09 |
 | **exp03** | zero_shot | option-LL ensemble of top adapters | **top-2 {r256,r192} test 0.7811 (NEW BEST)**; top-3 0.7777, top-4 0.7744 (single r256 LL≈gen). Ensembling beats best single by +0.0045 | `experiments/exp03_ll_ensemble/e03{a..d}/`; Kaggle 2026-06-10 |
 | **exp04** | zero_shot + few_shot | cross-strategy LL ensemble | **{zs256,zs192,fs256} test 0.7888 (NEW BEST)**; pair {zs256,fs256} 0.7855; fs solo 0.7544; CoT dropped (proxy 0.59). Weak-but-diverse few_shot member lifts ensemble +0.0077 | `experiments/exp04_strategy_diverse/e04{a..e}/`; Kaggle 2026-06-10 |
+| **exp05** | zero_shot | DoRA (weight-decomposed LoRA) | **DoRA r256 solo 0.7811 beats vanilla 0.7766**; but r192/r128 worse, and DoRA *hurts* the ensemble (4-mem 0.7855, 5-mem 0.7811 < best 0.7888). Best stays exp04 0.7888 | `experiments/exp05_dora_variant/e05{a..f}/`; Kaggle 2026-06-10 |
 
 Submission-set recompute (separate inference run, 900 examples,
 `outputs/validation/*.jsonl`): zero_shot 0.7367 (663/900), few_shot 0.7322
@@ -344,3 +345,73 @@ averaging by member strength; (4) self-consistency on a fixed CoT.
 - Ensemble scorer (phase 2): `exp04_strategy_diverse/e04{c,d,e}/main.py`,
   `…/config.yaml`, `…/run.sbatch`
 - Submissions + summaries: `exp04_strategy_diverse/e04*/outputs/`
+
+---
+
+## exp05 — DoRA (weight-decomposed LoRA) as a LoRA-method lever
+
+**Goal:** stay on the LoRA *method* (model fixed at 1B). Does DoRA beat vanilla
+LoRA at matched rank, and does it add a method-diverse ensemble member past 0.7888?
+
+**Hypothesis:** DoRA ≥ vanilla solo at equal rank, and DoRA adapters diversify
+the ensemble. (Pre-registered in `exp05_dora_variant/README.md`.)
+
+**Method:** Phase 1 — DoRA (`use_dora=True`) at r∈{256,192,128}, zero_shot,
+α=2r, effective batch 768. DoRA is memory-heavy → OOM at batch 48 on the 140 GB
+H200; fixed with batch 8 × accum 12 (768 effective unchanged) + expandable
+segments. Config-driven via cell-local `model.py`/`main.py`. Phase 2 — fold DoRA
+adapters into the exp04 best ensemble via the cross-strategy LL scorer (DoRA
+loads normally onto the base).
+
+**Results** (proxy = best val_acc; **test** = Kaggle 2026-06-10):
+
+| Cell | adapter / ensemble | proxy | **Kaggle test** | vs vanilla |
+|------|--------------------|-------|------|-----|
+| e05a | DoRA r256 solo | 0.7438 | **0.7811** | vanilla 0.7766 → **DoRA +0.0045** |
+| e05b | DoRA r192 solo | 0.7427 | 0.7566 | vanilla 0.7700 → DoRA −0.0134 |
+| e05c | DoRA r128 solo | 0.7438 | 0.7577 | vanilla 0.7666 → DoRA −0.0089 |
+| e05d | {van256,van192,fs256,**dora256**} | val 0.7600 | 0.7855 | best 0.7888 → **−0.0033** |
+| e05e | {…,**dora256,dora192**} | val 0.7656 | 0.7811 | best 0.7888 → **−0.0077** |
+| e05f | {van256,dora256,fs256} | val 0.7567 | not submitted (weakest on val) | — |
+
+**Key findings:**
+1. **DoRA r=256 solo (0.7811) beats vanilla r=256 (0.7766)** by +0.0045 — a real
+   LoRA-method win at the peak rank, and it single-handedly matches the exp03
+   2-model vanilla ensemble. But DoRA is **inconsistent**: at r=192/128 it is
+   *worse* than vanilla (−0.013/−0.009). DoRA helps only at the high rank here.
+2. **DoRA HURT the ensemble** (4-member 0.7855, 5-member 0.7811, both < best
+   0.7888) — even though DoRA r256 is individually strong (0.7811) and disagrees
+   with vanilla on 11.3% of questions. **This is the central lesson refined:**
+   exp04's few_shot helped the ensemble despite being *weaker* because it is a
+   different *strategy* (orthogonal errors); DoRA *hurt* despite being *stronger*
+   because it is the same strategy (zero_shot) — its errors are **correlated**
+   with vanilla zero_shot. **Ensemble gains require orthogonal (cross-strategy)
+   diversity, not a different LoRA parameterisation of the same view.**
+3. **Val misranked again** — it ranked the 5-member ensemble best (0.7656); test
+   ranked it *worst* of the three DoRA ensembles, and all three below the
+   3-member best. Consistent with every prior experiment: trust val for
+   direction only.
+
+**Failed variants (root cause):**
+- **e05b/e05c (DoRA r192/r128 solo): worse than vanilla.** DoRA's magnitude
+  decomposition seems to help only near the capacity sweet spot (r256); at lower
+  rank it underperforms plain LoRA. Root cause unclear — possibly DoRA's extra
+  magnitude params need more capacity/epochs to pay off.
+- **e05d/e05e (DoRA in ensemble): regressed vs best.** Root cause: same-strategy
+  correlation (finding 2). Adding a member whose errors correlate with existing
+  members averages in shared mistakes without orthogonal correction; the weaker
+  dora192 (0.7566) in e05e dragged it down further (cf. exp03 r=64).
+
+**Conclusion / shipped?** **Nothing shipped; best stays exp04 {van256,van192,fs256}
+= 0.7888.** DoRA is not a net win here: a single-rank solo gain (r256) that does
+not transfer to the ensemble, plus inconsistency across ranks. The actionable
+takeaway for closing the gap to 0.8088 is finding 2: **add orthogonal views
+(different strategies/prompts), not more same-strategy LoRA variants.** Candidate
+exp06 levers: multiple few_shot variants (different example sets), expert-persona
+/ paraphrased zero_shot prompts, or a working different decision method — each a
+genuinely different view to diversify the ensemble.
+
+**Files:**
+- DoRA training: `exp05_dora_variant/e05{a,b,c}/{config.yaml,run.sbatch,model.py,main.py}`
+- DoRA ensembles: `exp05_dora_variant/e05{d,e,f}/{config.yaml,run.sbatch,main.py}`
+- Submissions/summaries: `exp05_dora_variant/e05*/outputs/`
