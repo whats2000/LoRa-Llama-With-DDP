@@ -1,0 +1,5 @@
+paths: {output_csv: "experiments/exp06_zeroshot_recipe/e06g/outputs/ll_submission.csv"}
+inference: {batch_size: 32}
+ensemble:
+  members:
+    - {adapter: "experiments/exp06_zeroshot_recipe/e06d/saved_models", strategy: "zero_shot"}

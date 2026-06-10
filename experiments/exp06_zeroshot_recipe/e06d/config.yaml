@@ -1,0 +1,16 @@
+# ── exp06 / e06d — zero_shot r=256, RESTRICTED 4-way option loss ──
+# Identical to control (lr 5e-5, eff 768) except the training loss: 4-way CE over
+# {A,B,C,D} at the answer position (aligns training with the LL inference objective).
+# Real eval via LL scorer (generation may be unreliable since eos isn't supervised).
+paths:
+  saved_models: "experiments/exp06_zeroshot_recipe/e06d/saved_models"
+  output_csv: "experiments/exp06_zeroshot_recipe/e06d/outputs/zero_shot_submission.csv"
+lora:
+  r: 256
+  lora_alpha: 512
+training:
+  learning_rate: 5e-5
+  batch_size: 48
+  grad_accumulation_steps: 2
+prompting:
+  strategy: "zero_shot"

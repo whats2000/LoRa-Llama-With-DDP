@@ -17,6 +17,7 @@ submission score (reported by the user) is authoritative.
 | **exp03** | zero_shot | option-LL ensemble of top adapters | **top-2 {r256,r192} test 0.7811 (NEW BEST)**; top-3 0.7777, top-4 0.7744 (single r256 LL≈gen). Ensembling beats best single by +0.0045 | `experiments/exp03_ll_ensemble/e03{a..d}/`; Kaggle 2026-06-10 |
 | **exp04** | zero_shot + few_shot | cross-strategy LL ensemble | **{zs256,zs192,fs256} test 0.7888 (NEW BEST)**; pair {zs256,fs256} 0.7855; fs solo 0.7544; CoT dropped (proxy 0.59). Weak-but-diverse few_shot member lifts ensemble +0.0077 | `experiments/exp04_strategy_diverse/e04{a..e}/`; Kaggle 2026-06-10 |
 | **exp05** | zero_shot | DoRA (weight-decomposed LoRA) | **DoRA r256 solo 0.7811 beats vanilla 0.7766**; but r192/r128 worse, and DoRA *hurts* the ensemble (4-mem 0.7855, 5-mem 0.7811 < best 0.7888). Best stays exp04 0.7888 | `experiments/exp05_dora_variant/e05{a..f}/`; Kaggle 2026-06-10 |
+| **exp06** | zero_shot | training recipe (LR / steps / loss) | **eff-batch 192 (more steps) single 0.7844 — best single adapter** (+0.0078 vs control 0.7766); lr↑ and eff96 overfit; restricted-loss failed (val 0.7189); eff192 in ensemble 0.7866 < best 0.7888 | `experiments/exp06_zeroshot_recipe/e06{a..h}/`; Kaggle 2026-06-10 |
 
 Submission-set recompute (separate inference run, 900 examples,
 `outputs/validation/*.jsonl`): zero_shot 0.7367 (663/900), few_shot 0.7322
@@ -415,3 +416,65 @@ genuinely different view to diversify the ensemble.
 - DoRA training: `exp05_dora_variant/e05{a,b,c}/{config.yaml,run.sbatch,model.py,main.py}`
 - DoRA ensembles: `exp05_dora_variant/e05{d,e,f}/{config.yaml,run.sbatch,main.py}`
 - Submissions/summaries: `exp05_dora_variant/e05*/outputs/`
+
+---
+
+## exp06 — zero_shot training recipe (LR / steps / loss)
+
+**Goal:** improve how the zero_shot r=256 adapter is *trained* (user steer: stop
+chasing CoT/few_shot at 1B). Control = exp02 e02c (lr 5e-5, eff batch 768) → 0.7766.
+
+**Method:** one knob per cell, all zero_shot r=256. LR {1e-4,2e-4}; effective
+batch {384,192,96} (= more optimizer steps at fixed 10 epochs); restricted 4-way
+option loss (cell-local `train.py`). LR/batch cells = root pipeline (config); loss
+cell scored by the LL scorer.
+
+**Results** (Kaggle test; proxy in parens):
+
+| Cell | recipe | **test** | proxy |
+|------|--------|------|-------|
+| (e02c) | eff768, lr5e-5 *(control)* | 0.7766 | 0.7465 |
+| e06a | lr 1e-4 | 0.7522 | 0.7439 |
+| e06b | lr 2e-4 | 0.7666 | 0.7309 |
+| e06f | eff384 (2× steps) | 0.7666 | 0.7517 |
+| **e06c** | **eff192 (4× steps)** | **0.7844** | 0.7542 |
+| e06e | eff96 (8× steps) | 0.7488 | 0.7646 |
+| e06d | restricted 4-way loss | — (LL val 0.7189) | gen 0.5972 |
+| e06h | ensemble {eff192, van192, fs256} | 0.7866 | val 0.7656 |
+
+**Key findings:**
+1. **eff batch 192 is the best single-adapter recipe (0.7844)** — +0.0078 over the
+   eff768 control, and our best single adapter (> vanilla 0.7766, DoRA 0.7811).
+   The eff768 default under-trained (only ~110 optimizer steps); 4× more steps
+   helped.
+2. **But the steps curve is non-monotonic / has a sweet spot at eff192.** eff96
+   (8× steps) *overfit* — best proxy (0.7646) yet worst test (0.7488). eff384
+   (0.7666) even dipped below the control, so the curve is also noisy (~±0.01).
+   The proxy badly misranked: it rose monotonically with steps while test peaked
+   at eff192 then crashed. Same proxy-misranks lesson as every prior experiment.
+3. **Learning rate 5e-5 was already near-optimal** — 1e-4 (0.7522) and 2e-4
+   (0.7666) both underperformed the control.
+4. **eff192 did NOT improve the ensemble** (e06h 0.7866 < best 0.7888): swapping
+   the stronger zero_shot member for van256 *hurt*, consistent with exp05 — a
+   stronger but same-strategy member doesn't help (correlated errors).
+
+**Failed variants (root cause):**
+- **e06d (restricted 4-way option loss): LL val 0.7189, well below control 0.7467.**
+  Root cause: restricting the loss to the 4 option logits discards the full-vocab
+  next-token signal, which evidently regularises/teaches useful structure. The
+  generative full-vocab CE is the better objective even though we score by option
+  LL at inference.
+- **e06e (eff96, 8× steps): overfit, 0.7488.** Too many optimizer steps on ~8.1k
+  examples memorise the train set; test generalisation collapses.
+
+**Conclusion / shipped?** **Best single-adapter recipe = eff batch 192 (0.7844)**
+— a real training-recipe win, and the clearest "how to train zero_shot" result.
+But it did not lift the **ensemble** (best stays exp04 {van256,van192,fs256} =
+0.7888). Plateau at 0.7888; single-best 0.7844. Open next step (uncertain):
+retrain *all* ensemble members (zs192, few_shot) with the eff192 recipe and
+re-ensemble — whether stronger-but-correlated members net help is unknown.
+
+**Files:**
+- LR/steps (config): `exp06_zeroshot_recipe/e06{a,b,c,e,f}/{config.yaml,run.sbatch}`
+- Restricted loss (code): `exp06_zeroshot_recipe/e06d/{train.py,main.py,config.yaml,run.sbatch}`
+- Inference: `exp06_zeroshot_recipe/e06{g,h}/{main.py,config.yaml,run.sbatch}`

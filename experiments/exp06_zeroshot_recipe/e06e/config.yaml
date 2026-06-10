@@ -1,0 +1,7 @@
+# ── exp06 / e06e — zero_shot r=256, eff96 8x-steps (steps lever; lr 5e-5) ──
+paths:
+  saved_models: "experiments/exp06_zeroshot_recipe/e06e/saved_models"
+  output_csv: "experiments/exp06_zeroshot_recipe/e06e/outputs/zero_shot_submission.csv"
+lora: {r: 256, lora_alpha: 512}
+training: {learning_rate: 5e-5, batch_size: 12, grad_accumulation_steps: 1}
+prompting: {strategy: "zero_shot"}

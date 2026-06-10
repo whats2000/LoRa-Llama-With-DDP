@@ -1,0 +1,14 @@
+# ── exp06 / e06c — zero_shot r=256 training recipe: lr=5e-5 eff192 (4x steps) ──
+# Control = exp02 e02c (lr 5e-5, eff batch 768) -> Kaggle 0.7766.
+paths:
+  saved_models: "experiments/exp06_zeroshot_recipe/e06c/saved_models"
+  output_csv: "experiments/exp06_zeroshot_recipe/e06c/outputs/zero_shot_submission.csv"
+lora:
+  r: 256
+  lora_alpha: 512
+training:
+  learning_rate: 5e-5
+  batch_size: 24
+  grad_accumulation_steps: 1
+prompting:
+  strategy: "zero_shot"
