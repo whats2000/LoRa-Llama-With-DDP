@@ -21,6 +21,7 @@ submission score (reported by the user) is authoritative.
 | **exp07** | zs+fewshot @ eff192 | rebuild ensemble from eff192 members | **eff192 trio {zs256,zs192,fs256} test 0.7922 (NEW BEST)**; few_shot solo jumped 0.7544→0.7733 with eff192; val misranked (zs-pair best on val 0.7767 but test 0.7822 < trio) | `experiments/exp07_eff192_ensemble/e07{a..e}/`; Kaggle 2026-06-10 |
 | **exp08** | zs + multi-shot fewshot | few_shot shot-count diversity | **5-member {zs256,zs192,fs2,fs4,fs8} test 0.7988 (NEW BEST)**; 4-mem 0.7955; fs shot-counts mutually orthogonal (agree 0.84–0.87, unlike DoRA). More orthogonal views = better | `experiments/exp08_fewshot_diversity/e08{a..e}/`; Kaggle 2026-06-10 |
 | **exp09** | zs + 6 fewshot views | scale up shot-count diversity | **negative: more views saturate/regress** — 8-member 0.7911, 6fs-only 0.7855, all < exp08 5-member 0.7988. Sweet spot ~5 members {zs256,zs192,fs2,fs4,fs8}. Best stays 0.7988 | `experiments/exp09_more_fewshot/e09{a..f}/`; Kaggle 2026-06-10 |
+| **exp10** | combination method | weighted / geometric ensemble | **negative: none beat uniform arithmetic 0.7988** — geom uniform 0.7922, zs-weighted 0.7955–0.7966, solo-weighted ties 0.7988. Uniform avg is optimal | `experiments/exp10_ensemble_combine/e10{a..d}/`; Kaggle 2026-06-10 |
 
 Submission-set recompute (separate inference run, 900 examples,
 `outputs/validation/*.jsonl`): zero_shot 0.7367 (663/900), few_shot 0.7322
@@ -610,3 +611,43 @@ gap to 0.8088 (+0.0100) likely needs a different lever (weighted combination, or
 something orthogonal we haven't found), not more members.
 
 **Files:** `exp09_more_fewshot/e09{a,b,c}/` (train), `e09{d,e,f}/` (ensembles).
+
+---
+
+## exp10 — ensemble combination method (negative)
+
+**Goal:** squeeze the fixed best 5-member set {zs256,zs192,fs2,fs4,fs8} (uniform
+arithmetic = 0.7988) via a better combination — geometric mean and/or weighting.
+
+**Method:** extend the LL scorer with `combine` (arithmetic|geometric) and
+per-member `weight`. Same 5 members, no retraining.
+
+**Results** (Kaggle test; control uniform-arithmetic = 0.7988):
+
+| Cell | combine | test |
+|------|---------|------|
+| e10a | geometric, uniform | 0.7922 |
+| e10c | geometric, zs×1.5 | 0.7955 |
+| e10b | arithmetic, zs×1.5 | 0.7966 |
+| e10d | arithmetic, solo-strength weighted | 0.7988 (tie) |
+| (e08c) | **arithmetic, uniform** | **0.7988** |
+
+**Key findings:**
+1. **Uniform arithmetic averaging is optimal.** No variant beat it; geometric mean
+   *hurt* (−0.0066), and up-weighting the stronger zero_shot members *hurt*
+   (−0.002 to −0.003).
+2. **Why weighting zero_shot up hurts:** it suppresses the few_shot members, which
+   are the *orthogonal* contributors driving the ensemble gain. The ensemble wants
+   the diverse-but-weaker members at full weight — strength-weighting is
+   counterproductive here (the exp04/05 "diversity > strength" lesson, again).
+3. Solo-strength weights (1.3/1.2/1/1/1, near-uniform) tied at 0.7988 — barely
+   shifted predictions.
+
+**Conclusion / shipped?** **No improvement; best holds at 0.7988** (5-member
+uniform-arithmetic LL ensemble). The combination lever is exhausted. After
+sweeping capacity, recipe, LoRA-method, ensemble composition, and combination,
+the approach plateaus at **0.7988** (+0.0288 over baseline 0.7700). The remaining
++0.0100 to the leaderboard top (0.8088) appears to need a qualitatively different
+technique not reachable by the LoRA/ensemble levers explored here.
+
+**Files:** `exp10_ensemble_combine/e10{a..d}/`.
