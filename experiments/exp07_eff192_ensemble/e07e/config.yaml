@@ -1,0 +1,8 @@
+paths: {output_csv: "experiments/exp07_eff192_ensemble/e07e/outputs/ll_submission.csv"}
+inference: {batch_size: 32}
+ensemble:
+  members:
+    - {adapter: "experiments/exp06_zeroshot_recipe/e06c/saved_models", strategy: "zero_shot"}
+    - {adapter: "experiments/exp07_eff192_ensemble/e07a/saved_models", strategy: "zero_shot"}
+    - {adapter: "experiments/exp07_eff192_ensemble/e07b/saved_models", strategy: "few_shot"}
+    - {adapter: "experiments/exp02_rank_scaling/e02c/saved_models", strategy: "zero_shot"}

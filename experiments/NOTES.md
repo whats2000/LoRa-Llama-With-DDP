@@ -18,6 +18,7 @@ submission score (reported by the user) is authoritative.
 | **exp04** | zero_shot + few_shot | cross-strategy LL ensemble | **{zs256,zs192,fs256} test 0.7888 (NEW BEST)**; pair {zs256,fs256} 0.7855; fs solo 0.7544; CoT dropped (proxy 0.59). Weak-but-diverse few_shot member lifts ensemble +0.0077 | `experiments/exp04_strategy_diverse/e04{a..e}/`; Kaggle 2026-06-10 |
 | **exp05** | zero_shot | DoRA (weight-decomposed LoRA) | **DoRA r256 solo 0.7811 beats vanilla 0.7766**; but r192/r128 worse, and DoRA *hurts* the ensemble (4-mem 0.7855, 5-mem 0.7811 < best 0.7888). Best stays exp04 0.7888 | `experiments/exp05_dora_variant/e05{a..f}/`; Kaggle 2026-06-10 |
 | **exp06** | zero_shot | training recipe (LR / steps / loss) | **eff-batch 192 (more steps) single 0.7844 — best single adapter** (+0.0078 vs control 0.7766); lr↑ and eff96 overfit; restricted-loss failed (val 0.7189); eff192 in ensemble 0.7866 < best 0.7888 | `experiments/exp06_zeroshot_recipe/e06{a..h}/`; Kaggle 2026-06-10 |
+| **exp07** | zs+fewshot @ eff192 | rebuild ensemble from eff192 members | **eff192 trio {zs256,zs192,fs256} test 0.7922 (NEW BEST)**; few_shot solo jumped 0.7544→0.7733 with eff192; val misranked (zs-pair best on val 0.7767 but test 0.7822 < trio) | `experiments/exp07_eff192_ensemble/e07{a..e}/`; Kaggle 2026-06-10 |
 
 Submission-set recompute (separate inference run, 900 examples,
 `outputs/validation/*.jsonl`): zero_shot 0.7367 (663/900), few_shot 0.7322
@@ -478,3 +479,50 @@ re-ensemble — whether stronger-but-correlated members net help is unknown.
 - LR/steps (config): `exp06_zeroshot_recipe/e06{a,b,c,e,f}/{config.yaml,run.sbatch}`
 - Restricted loss (code): `exp06_zeroshot_recipe/e06d/{train.py,main.py,config.yaml,run.sbatch}`
 - Inference: `exp06_zeroshot_recipe/e06{g,h}/{main.py,config.yaml,run.sbatch}`
+
+---
+
+## exp07 — rebuild the best ensemble from eff192-trained members
+
+**Goal:** the exp04 best ensemble (0.7888) used under-trained eff768 members.
+exp06 showed eff192 is the better recipe. Retrain the members at eff192 and
+re-ensemble — does it clear 0.7888?
+
+**Method:** retrain zs192 (e07a) and few_shot r256 (e07b) at eff batch 192
+(batch 24 × accum 1 × 8 GPU); eff192 zs256 reuses exp06 e06c. Ensemble via the
+cross-strategy LL scorer.
+
+**Results** (Kaggle test):
+
+| Cell | adapter / ensemble | proxy/val | **test** |
+|------|--------------------|-----------|------|
+| e07a | zs192 @ eff192 solo | proxy 0.7604 (was 0.7405) | 0.7722 (was 0.7700) |
+| e07b | few_shot @ eff192 solo | proxy 0.7524 (was 0.7378) | **0.7733 (was 0.7544, +0.019)** |
+| e07d | eff192 zs-pair {zs256,zs192} | val 0.7767 | 0.7822 |
+| **e07c** | eff192 trio {zs256,zs192,fs256} | val 0.7689 | **0.7922 ← NEW BEST** |
+| e07e | eff192 trio + old van256 | val 0.7700 | 0.7922 |
+
+**Key findings:**
+1. **All-eff192 trio = 0.7922, new best** (+0.0034 over exp04's 0.7888). Upgrading
+   the members' training recipe lifted the ensemble.
+2. **The eff192 recipe helped the orthogonal few_shot member most** (+0.019 solo:
+   0.7544→0.7733). few_shot's prompt is longer / harder, so it benefited more from
+   the extra optimizer steps — and being the ensemble's only orthogonal member,
+   its lift drove the ensemble gain. (zs192 only +0.0022 solo.)
+3. **Val misranked yet again:** it ranked the few_shot-free zs-pair best (0.7767),
+   but on test the trio WITH few_shot won (0.7922 > pair 0.7822). The cross-strategy
+   member helps test even when it lowers val — the exp04 lesson, reconfirmed.
+4. Adding the old eff768 van256 (e07e) didn't change the score (0.7922) — a 4th
+   correlated zero_shot member is inert.
+
+**Conclusion / shipped?** **New best pipeline = eff192 trio {zs256, zs192, fs256}
+LL-ensemble = 0.7922.** Arc: baseline 0.7700 → exp04 0.7888 → exp07 0.7922. The
+two reusable wins compounded: eff192 training recipe (exp06) + cross-strategy
+ensemble (exp04). Gap to leaderboard 0.8088 now +0.0166. Next candidates: more
+orthogonal members at eff192 (few_shot with different example sets / shot counts —
+each a different in-context view), which is the only axis that has ever helped.
+
+**Files:**
+- Retrain: `exp07_eff192_ensemble/e07{a,b}/{config.yaml,run.sbatch}`
+- Ensembles: `exp07_eff192_ensemble/e07{c,d,e}/{main.py,config.yaml,run.sbatch}`
+- Submissions: `exp07_eff192_ensemble/e07*/outputs/`

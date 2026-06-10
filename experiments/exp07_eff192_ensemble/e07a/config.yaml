@@ -1,0 +1,7 @@
+# ── exp07 / e07a — zero_shot r=192 @ eff batch 192 (the winning recipe) ──
+paths:
+  saved_models: "experiments/exp07_eff192_ensemble/e07a/saved_models"
+  output_csv: "experiments/exp07_eff192_ensemble/e07a/outputs/zero_shot_submission.csv"
+lora: {r: 192, lora_alpha: 384}
+training: {learning_rate: 5e-5, batch_size: 24, grad_accumulation_steps: 1}
+prompting: {strategy: "zero_shot"}
