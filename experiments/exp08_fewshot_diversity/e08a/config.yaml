@@ -1,0 +1,7 @@
+# ── exp08 / e08a — few_shot 8-shot @ eff192 (more in-context = different view) ──
+paths:
+  saved_models: "experiments/exp08_fewshot_diversity/e08a/saved_models"
+  output_csv: "experiments/exp08_fewshot_diversity/e08a/outputs/few_shot_submission.csv"
+lora: {r: 256, lora_alpha: 512}
+training: {learning_rate: 5e-5, batch_size: 24, grad_accumulation_steps: 1, max_length: 768}
+prompting: {strategy: "few_shot", num_few_shot_examples: 8}

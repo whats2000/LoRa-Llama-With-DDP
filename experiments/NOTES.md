@@ -19,6 +19,7 @@ submission score (reported by the user) is authoritative.
 | **exp05** | zero_shot | DoRA (weight-decomposed LoRA) | **DoRA r256 solo 0.7811 beats vanilla 0.7766**; but r192/r128 worse, and DoRA *hurts* the ensemble (4-mem 0.7855, 5-mem 0.7811 < best 0.7888). Best stays exp04 0.7888 | `experiments/exp05_dora_variant/e05{a..f}/`; Kaggle 2026-06-10 |
 | **exp06** | zero_shot | training recipe (LR / steps / loss) | **eff-batch 192 (more steps) single 0.7844 — best single adapter** (+0.0078 vs control 0.7766); lr↑ and eff96 overfit; restricted-loss failed (val 0.7189); eff192 in ensemble 0.7866 < best 0.7888 | `experiments/exp06_zeroshot_recipe/e06{a..h}/`; Kaggle 2026-06-10 |
 | **exp07** | zs+fewshot @ eff192 | rebuild ensemble from eff192 members | **eff192 trio {zs256,zs192,fs256} test 0.7922 (NEW BEST)**; few_shot solo jumped 0.7544→0.7733 with eff192; val misranked (zs-pair best on val 0.7767 but test 0.7822 < trio) | `experiments/exp07_eff192_ensemble/e07{a..e}/`; Kaggle 2026-06-10 |
+| **exp08** | zs + multi-shot fewshot | few_shot shot-count diversity | **5-member {zs256,zs192,fs2,fs4,fs8} test 0.7988 (NEW BEST)**; 4-mem 0.7955; fs shot-counts mutually orthogonal (agree 0.84–0.87, unlike DoRA). More orthogonal views = better | `experiments/exp08_fewshot_diversity/e08{a..e}/`; Kaggle 2026-06-10 |
 
 Submission-set recompute (separate inference run, 900 examples,
 `outputs/validation/*.jsonl`): zero_shot 0.7367 (663/900), few_shot 0.7322
@@ -526,3 +527,46 @@ each a different in-context view), which is the only axis that has ever helped.
 - Retrain: `exp07_eff192_ensemble/e07{a,b}/{config.yaml,run.sbatch}`
 - Ensembles: `exp07_eff192_ensemble/e07{c,d,e}/{main.py,config.yaml,run.sbatch}`
 - Submissions: `exp07_eff192_ensemble/e07*/outputs/`
+
+---
+
+## exp08 — few_shot shot-count diversity
+
+**Goal:** orthogonal members help (exp04/07). Are different few_shot *shot counts*
+(2/4/8) orthogonal enough to stack as extra ensemble members?
+
+**Method:** train few_shot 8-shot (e08a, maxlen 768) and 2-shot (e08b) at eff192;
+4-shot = exp07 e07b. Ensemble via the cross-strategy LL scorer, **extended so each
+few_shot member is scored with its own trained shot count** (per-member `shots`;
+a mismatch would invalidate fs8/fs2).
+
+**Diversity precheck (benchmark preds):** fs2/fs4/fs8 mutually agree 0.843–0.866,
+and ~0.84 vs zero_shot — i.e. as orthogonal to each other as few_shot is to
+zero_shot. (Contrast DoRA in exp05: same-strategy, correlated, hurt the ensemble.)
+
+**Results** (Kaggle test):
+
+| Cell | ensemble | val | **test** |
+|------|----------|-----|------|
+| e08e | {zs256, fs2, fs4, fs8} | 0.7611 | 0.7900 |
+| e08d | {zs256, zs192, fs4, fs8} | 0.7667 | 0.7955 |
+| **e08c** | {zs256, zs192, fs2, fs4, fs8} | 0.7711 | **0.7988 ← NEW BEST** |
+
+**Key findings:**
+1. **5-member multi-shot ensemble = 0.7988, new best** (+0.0066 over exp07 0.7922).
+   Stacking few_shot views at different shot counts works.
+2. **Shot-count variants are genuinely orthogonal** (0.84–0.87 mutual agreement) —
+   the discriminator vs DoRA: DoRA was a different *parameterisation* of the same
+   zero_shot decision (correlated); different shot counts are different *decision
+   contexts* (orthogonal). Confirms the exp05 lesson from the other side.
+3. **More orthogonal views = monotonically better** (5-mem 0.7988 > 4-mem 0.7955 >
+   {zs256,fs×3} 0.7900). Each diverse member adds signal.
+4. Val ranked these correctly for once (c>d>e both ways) — but absolute val→test
+   gap (~+0.03) persists; still trust test.
+
+**Conclusion / shipped?** **New best = 5-member multi-shot LL ensemble = 0.7988.**
+Arc: 0.7700 → 0.7888 → 0.7922 → 0.7988. Gap to 0.8088 now +0.0100. The lever is
+clearly "more orthogonal few_shot views" — next: additional shot counts (1/3/6/16)
+and/or different example sets, all at eff192, then re-ensemble.
+
+**Files:** `exp08_fewshot_diversity/e08{a,b}/` (train), `e08{c,d,e}/` (ensembles).
