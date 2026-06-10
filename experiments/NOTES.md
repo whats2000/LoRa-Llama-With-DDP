@@ -20,6 +20,7 @@ submission score (reported by the user) is authoritative.
 | **exp06** | zero_shot | training recipe (LR / steps / loss) | **eff-batch 192 (more steps) single 0.7844 — best single adapter** (+0.0078 vs control 0.7766); lr↑ and eff96 overfit; restricted-loss failed (val 0.7189); eff192 in ensemble 0.7866 < best 0.7888 | `experiments/exp06_zeroshot_recipe/e06{a..h}/`; Kaggle 2026-06-10 |
 | **exp07** | zs+fewshot @ eff192 | rebuild ensemble from eff192 members | **eff192 trio {zs256,zs192,fs256} test 0.7922 (NEW BEST)**; few_shot solo jumped 0.7544→0.7733 with eff192; val misranked (zs-pair best on val 0.7767 but test 0.7822 < trio) | `experiments/exp07_eff192_ensemble/e07{a..e}/`; Kaggle 2026-06-10 |
 | **exp08** | zs + multi-shot fewshot | few_shot shot-count diversity | **5-member {zs256,zs192,fs2,fs4,fs8} test 0.7988 (NEW BEST)**; 4-mem 0.7955; fs shot-counts mutually orthogonal (agree 0.84–0.87, unlike DoRA). More orthogonal views = better | `experiments/exp08_fewshot_diversity/e08{a..e}/`; Kaggle 2026-06-10 |
+| **exp09** | zs + 6 fewshot views | scale up shot-count diversity | **negative: more views saturate/regress** — 8-member 0.7911, 6fs-only 0.7855, all < exp08 5-member 0.7988. Sweet spot ~5 members {zs256,zs192,fs2,fs4,fs8}. Best stays 0.7988 | `experiments/exp09_more_fewshot/e09{a..f}/`; Kaggle 2026-06-10 |
 
 Submission-set recompute (separate inference run, 900 examples,
 `outputs/validation/*.jsonl`): zero_shot 0.7367 (663/900), few_shot 0.7322
@@ -570,3 +571,42 @@ clearly "more orthogonal few_shot views" — next: additional shot counts (1/3/6
 and/or different example sets, all at eff192, then re-ensemble.
 
 **Files:** `exp08_fewshot_diversity/e08{a,b}/` (train), `e08{c,d,e}/` (ensembles).
+
+---
+
+## exp09 — scaling up few_shot shot-count views (negative)
+
+**Goal:** exp08's 5-member multi-shot ensemble hit 0.7988. Does adding more
+few_shot views (1/3/6-shot) keep helping toward 0.8088?
+
+**Method:** train few_shot 1/3/6-shot @ eff192 (e09a/b/c); ensemble up to
+8 members (2 zero_shot + 6 few_shot views {1,2,3,4,6,8}) and subsets.
+
+**Results** (Kaggle test; best prior = exp08 5-member 0.7988):
+
+| Cell | ensemble | val | test |
+|------|----------|-----|------|
+| e09e | 6 few_shot only {1,2,3,4,6,8} | 0.7667 | 0.7855 |
+| e09f | {zs256, zs192, fs1, fs3, fs4, fs6} | 0.7756 | 0.7888 |
+| e09d | 8-member {zs256, zs192, fs1,2,3,4,6,8} | 0.7733 | 0.7911 |
+| (e08c) | **{zs256, zs192, fs2, fs4, fs8}** *(prior best)* | 0.7711 | **0.7988** |
+
+**Key findings:**
+1. **The orthogonal-views lever saturated and reversed.** All exp09 ensembles
+   (0.7855–0.7911) are *below* exp08's 5-member 0.7988. Adding fs1/fs3/fs6 diluted
+   rather than helped.
+2. **There is an ensemble-composition sweet spot (~5 members, {zs2,zs+fs2,4,8}).**
+   Beyond it: (a) the extra few_shot views are weaker (fs1 proxy 0.7635, fs6 0.7466)
+   and/or more mutually correlated than the well-spaced {2,4,8}; (b) a 6-few_shot
+   ensemble shifts the average too far toward few_shot (individually weaker than
+   zero_shot). Same "weak/correlated member dilutes" mechanism as exp03 r64 / exp05
+   DoRA, now from the member-count direction.
+3. Shot-count spacing matters: geometric {2,4,8} beat {1,3,4,6} (e09f 0.7888).
+
+**Conclusion / shipped?** **No improvement; best stays exp08 5-member = 0.7988.**
+The ensemble-composition lever is exhausted — diverse-member stacking peaks at
+~5 well-chosen members. Arc holds: 0.7700 → 0.7888 → 0.7922 → 0.7988. Remaining
+gap to 0.8088 (+0.0100) likely needs a different lever (weighted combination, or
+something orthogonal we haven't found), not more members.
+
+**Files:** `exp09_more_fewshot/e09{a,b,c}/` (train), `e09{d,e,f}/` (ensembles).

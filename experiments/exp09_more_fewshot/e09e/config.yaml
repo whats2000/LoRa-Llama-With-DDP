@@ -1,0 +1,10 @@
+paths: {output_csv: "experiments/exp09_more_fewshot/e09e/outputs/ll_submission.csv"}
+inference: {batch_size: 32}
+ensemble:
+  members:
+    - {adapter: "experiments/exp09_more_fewshot/e09a/saved_models", strategy: "few_shot", shots: 1}
+    - {adapter: "experiments/exp08_fewshot_diversity/e08b/saved_models", strategy: "few_shot", shots: 2}
+    - {adapter: "experiments/exp09_more_fewshot/e09b/saved_models", strategy: "few_shot", shots: 3}
+    - {adapter: "experiments/exp07_eff192_ensemble/e07b/saved_models", strategy: "few_shot", shots: 4}
+    - {adapter: "experiments/exp09_more_fewshot/e09c/saved_models", strategy: "few_shot", shots: 6}
+    - {adapter: "experiments/exp08_fewshot_diversity/e08a/saved_models", strategy: "few_shot", shots: 8}
