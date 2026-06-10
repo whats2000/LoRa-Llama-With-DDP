@@ -1,0 +1,12 @@
+# ── exp03 / e03c — option-LL ENSEMBLE: top-3 {r256,r192,r128} ──
+paths:
+  output_csv: "experiments/exp03_ll_ensemble/e03c/outputs/ll_submission.csv"
+inference:
+  batch_size: 32
+prompting:
+  strategy: "zero_shot"
+ensemble:
+  adapters:
+    - "experiments/exp02_rank_scaling/e02c/saved_models"
+    - "experiments/exp02_rank_scaling/e02b/saved_models"
+    - "experiments/exp02_rank_scaling/e02a/saved_models"

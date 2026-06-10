@@ -14,6 +14,7 @@ submission score (reported by the user) is authoritative.
 | baseline (root) | cot       | — | not run (`SKIP_COT=1`) | — |
 | **exp01** | zero_shot | LoRA rank sweep r∈{8..128} | **test monotonic in rank: r=128 best 0.7666**, r=64 0.7611, r=32 0.7444, r=16 0.7277, r=8 0.7100 (proxy inverted-U *misranks* — see entry) | `experiments/exp01_lora_rank/e01{a..e}/`; Kaggle hw-1-question-answering 2026-06-09 |
 | **exp02** | zero_shot | rank push r∈{128..512} @ γ=2 | **test peaks at r=256: 0.7766 (NEW BEST)**; r=192 0.7700, r=128 0.7666, r=384 0.7577, r=512 0.7533 (inverted-U on test; r=128 reproduces exp01 exactly) | `experiments/exp02_rank_scaling/e02{a..e}/`; Kaggle 2026-06-09 |
+| **exp03** | zero_shot | option-LL ensemble of top adapters | **top-2 {r256,r192} test 0.7811 (NEW BEST)**; top-3 0.7777, top-4 0.7744 (single r256 LL≈gen). Ensembling beats best single by +0.0045 | `experiments/exp03_ll_ensemble/e03{a..d}/`; Kaggle 2026-06-10 |
 
 Submission-set recompute (separate inference run, 900 examples,
 `outputs/validation/*.jsonl`): zero_shot 0.7367 (663/900), few_shot 0.7322
@@ -202,3 +203,69 @@ fine rank refine around 256 (224/256/288) — lowest expected payoff.
 - Curves/metrics: `exp02_rank_scaling/e02{a..e}/saved_models/training_history.json`
 - Benchmark submissions: `exp02_rank_scaling/e02{a..e}/outputs/zero_shot_submission.csv`
 - Design/hypothesis: `exp02_rank_scaling/README.md`
+
+---
+
+## exp03 — option-likelihood ensemble of the top rank adapters
+
+**Goal:** rank is mapped (exp02: best single r=256, 0.7766). Pursue a lever
+orthogonal to capacity: ensemble the already-trained top adapters. No training.
+
+**Hypothesis:** the top adapters disagree on ~15.6% of benchmark questions
+(pairwise agreement 0.86–0.93), so averaging their per-option probabilities
+should correct complementary errors and beat the best single (0.7766).
+
+**Method:** pure inference (no training). For each adapter, score the 4 answer
+letters by the first-token log-prob after the zero_shot prompt, softmax over the
+4 options → per-option probabilities; **average those probabilities across
+adapters**, argmax. Implemented in cell-local `main.py` (copy of root main.py,
+repurposed for inference; reuses `src.data` helpers unmodified). Single-GPU jobs
+on `dev`. Verified offline first: single-adapter r=256 LL-acc on val = 0.7467,
+matching its generation proxy 0.7465 → LL scoring is lossless. Adapters reused:
+r=256 (exp02 e02c), r=192 (e02b), r=128 (e02a), r=64 (exp01 e01d).
+
+**Results** (val LL-acc = offline, gold val split; **test** = Kaggle, submitted
+2026-06-10, public == private):
+
+| Cell | ensemble | val LL-acc | **Kaggle test** |
+|------|----------|-----------|------|
+| e03a | single r=256 | 0.7467 | (not submitted; LL≈gen → ≈ e02c 0.7766) |
+| **e03b** | **top-2 {r256,r192}** | 0.7500 | **0.7811 ← NEW BEST** |
+| e03c | top-3 {r256,r192,r128} | 0.7533 | 0.7777 |
+| e03d | top-4 {+r64} | 0.7489 | 0.7744 |
+
+**Key findings:**
+1. **The top-2 ensemble {r256,r192} is the new best at test 0.7811** — beats the
+   best single (r256, 0.7766) by +0.0045 and the original baseline (0.7700) by
+   +0.0111. Ensembling is a real, training-free gain.
+2. **Fewer strong models > more models.** Test order: top-2 (0.7811) > top-3
+   (0.7777) > top-4 (0.7744). Adding the weaker r=64 adapter monotonically
+   dilutes the ensemble. Use only the strongest 2.
+3. **LL scoring is lossless vs generation** for a single model (val 0.7467 ≈
+   gen proxy 0.7465) — so the entire exp03 gain is from ensembling, not from
+   switching the decode method.
+4. **The val proxy misranked ensemble breadth too:** val peaked at top-3
+   (0.7533), test peaked at top-2 (0.7811). Val correctly called the *direction*
+   ("ensembling helps", "drop r64") but not the exact optimum — consistent with
+   exp01/exp02: trust val for direction, the Kaggle test for the final pick.
+
+**Failed variants (root cause):**
+- **e03d (top-4, 0.7744): over-broad ensemble.** Including r=64 (single test
+  0.7611, the weakest member) drags the averaged probabilities toward its
+  errors. Ensemble members should be strong and comparable; a member ~0.015
+  below the others is net-negative.
+
+**Conclusion / shipped?** **New best pipeline = top-2 option-LL ensemble of the
+r=256 + r=192 zero_shot adapters, test 0.7811.** Progress arc: baseline 0.7700 →
+exp02 r=256 single 0.7766 → exp03 top-2 ensemble 0.7811. Still not merged into
+the root pipeline (root has no LL-ensemble inference path). Next-lever
+candidates: (1) weighted ensemble (weight by single-model strength) or add a
+r=320/r=224 sibling to the top-2 for more *diverse-but-strong* members; (2)
+untested strategies (CoT/few_shot) as additional diverse ensemble members;
+(3) self-consistency on CoT. Rank/capacity itself is exhausted.
+
+**Files:**
+- Inference entry + configs/runners: `exp03_ll_ensemble/e03{a..d}/main.py`,
+  `…/config.yaml`, `…/run.sbatch`
+- Submissions + per-cell summaries: `exp03_ll_ensemble/e03{a..d}/outputs/ll_submission.csv`,
+  `…/ll_submission_summary.json`

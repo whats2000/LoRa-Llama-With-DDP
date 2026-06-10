@@ -1,0 +1,11 @@
+# ── exp03 / e03a — option-LL scoring, SINGLE adapter r=256 (e02c) ──────────────
+# Tests LL scoring vs generation for the single best model (gen test = 0.7766).
+paths:
+  output_csv: "experiments/exp03_ll_ensemble/e03a/outputs/ll_submission.csv"
+inference:
+  batch_size: 32
+prompting:
+  strategy: "zero_shot"
+ensemble:
+  adapters:
+    - "experiments/exp02_rank_scaling/e02c/saved_models"   # r=256
