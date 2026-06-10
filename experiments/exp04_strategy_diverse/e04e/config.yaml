@@ -1,0 +1,11 @@
+# ── exp04 / e04e — cross-strategy LL ensemble: zs256+zs192 (control=exp03 top2) ──
+paths:
+  output_csv: "experiments/exp04_strategy_diverse/e04e/outputs/ll_submission.csv"
+inference:
+  batch_size: 32
+ensemble:
+  members:
+    - adapter: "experiments/exp02_rank_scaling/e02c/saved_models"
+      strategy: "zero_shot"
+    - adapter: "experiments/exp02_rank_scaling/e02b/saved_models"
+      strategy: "zero_shot"

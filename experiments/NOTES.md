@@ -15,6 +15,7 @@ submission score (reported by the user) is authoritative.
 | **exp01** | zero_shot | LoRA rank sweep r∈{8..128} | **test monotonic in rank: r=128 best 0.7666**, r=64 0.7611, r=32 0.7444, r=16 0.7277, r=8 0.7100 (proxy inverted-U *misranks* — see entry) | `experiments/exp01_lora_rank/e01{a..e}/`; Kaggle hw-1-question-answering 2026-06-09 |
 | **exp02** | zero_shot | rank push r∈{128..512} @ γ=2 | **test peaks at r=256: 0.7766 (NEW BEST)**; r=192 0.7700, r=128 0.7666, r=384 0.7577, r=512 0.7533 (inverted-U on test; r=128 reproduces exp01 exactly) | `experiments/exp02_rank_scaling/e02{a..e}/`; Kaggle 2026-06-09 |
 | **exp03** | zero_shot | option-LL ensemble of top adapters | **top-2 {r256,r192} test 0.7811 (NEW BEST)**; top-3 0.7777, top-4 0.7744 (single r256 LL≈gen). Ensembling beats best single by +0.0045 | `experiments/exp03_ll_ensemble/e03{a..d}/`; Kaggle 2026-06-10 |
+| **exp04** | zero_shot + few_shot | cross-strategy LL ensemble | **{zs256,zs192,fs256} test 0.7888 (NEW BEST)**; pair {zs256,fs256} 0.7855; fs solo 0.7544; CoT dropped (proxy 0.59). Weak-but-diverse few_shot member lifts ensemble +0.0077 | `experiments/exp04_strategy_diverse/e04{a..e}/`; Kaggle 2026-06-10 |
 
 Submission-set recompute (separate inference run, 900 examples,
 `outputs/validation/*.jsonl`): zero_shot 0.7367 (663/900), few_shot 0.7322
@@ -269,3 +270,77 @@ untested strategies (CoT/few_shot) as additional diverse ensemble members;
   `…/config.yaml`, `…/run.sbatch`
 - Submissions + per-cell summaries: `exp03_ll_ensemble/e03{a..d}/outputs/ll_submission.csv`,
   `…/ll_submission_summary.json`
+
+---
+
+## exp04 — cross-strategy ensemble (diverse prompt strategies as members)
+
+**Goal:** exp03's ensemble gain came from diversity among *same-strategy*
+(zero_shot) adapters. Test whether a *different prompt strategy* member —
+few_shot and/or CoT at the peak rank r=256 — adds more diversity and lifts the
+ensemble past 0.7811.
+
+**Hypothesis:** different strategies make *different* errors, so a strategy-diverse
+member should help the ensemble even if it is individually weaker (contrast
+exp03, where a weaker *same-strategy* member, r=64, hurt).
+
+**Method:** Phase 1 — train few_shot @ r=256 (e04a) and CoT @ r=256 (e04b) via
+the root pipeline (config-only, effective batch 768). Phase 2 — extend the exp03
+LL scorer so each ensemble *member* is scored with its own prompt strategy
+(few_shot uses its seed-42 4-example prompt; left-truncation preserves the
+"Answer:" position); average per-option probs across members. Cells e04c
+{zs256,zs192,fs256}, e04d {zs256,fs256}, e04e {zs256,zs192} (control). Adapters
+reused: zs256=exp02 e02c, zs192=exp02 e02b. Verified offline on val, then Kaggle.
+
+**Results** (val LL-acc offline; **test** = Kaggle 2026-06-10, public==private):
+
+| Cell | members | val LL-acc | **Kaggle test** |
+|------|---------|-----------|------|
+| e04a | few_shot solo r256 | 0.7378 (proxy) | 0.7544 |
+| e04b | CoT solo r256 | 0.5885 (proxy) | not submitted (dropped) |
+| e04e | {zs256, zs192} *(control)* | 0.7500 | 0.7811 *(= exp03 top-2 exactly)* |
+| e04d | {zs256, fs256} | 0.7556 | 0.7855 |
+| **e04c** | {zs256, zs192, fs256} | 0.7600 | **0.7888 ← NEW BEST** |
+
+**Key findings:**
+1. **Cross-strategy ensemble is the new best: {zs256,zs192,fs256} = 0.7888**,
+   beating exp03's same-strategy top-2 (0.7811) by +0.0077 and the original
+   baseline (0.7700) by +0.0188.
+2. **A weak-but-diverse member helps; a weak-but-similar member hurts.** few_shot
+   solo (0.7544) is *weaker* than zs256 (0.7766), yet adding it lifts the
+   ensemble (+0.0077 in the trio, +0.0089 in the pair vs their zs-only
+   counterparts). Contrast exp03 where the weak *same-strategy* r=64 (0.7611)
+   *dragged the ensemble down*. The discriminator is error **diversity**
+   (different strategy → different mistakes), not member accuracy alone.
+3. **The control reproduced exp03's 0.7811 exactly**, on both val (0.7500) and
+   test (0.7811) — the extended cross-strategy scorer is correct.
+4. **Val ranking held on test this time** (trio > pair > control both ways),
+   unlike exp03 where val misranked ensemble breadth. For cross-strategy
+   composition the val signal was reliable; still, the absolute val→test gap
+   (~+0.03) persists, so val stays a directional guide only.
+
+**Failed variants (root cause):**
+- **e04b (CoT @ r=256): proxy 0.5885, dropped before submission.** Two causes:
+  (a) a 1B model produces weak chains-of-thought for pathology MCQA; (b) the
+  rationales are long and name "Option A/B/C/D" throughout the reasoning, often
+  without reaching a clean "Answer: X" inside max_new_tokens — so the
+  reverse-token-scan extraction grabs an option letter from the *reasoning*, not
+  the final answer. CoT is not first-token LL-scorable and its generation
+  extraction is unreliable; salvaging it (forced "Answer:" parsing or
+  answer-position scoring) is deferred. Too weak to help the ensemble (cf.
+  finding 2 — diversity helps only if the member isn't *this* far below).
+
+**Conclusion / shipped?** **New best = cross-strategy LL ensemble
+{zs256, zs192, fs256}, test 0.7888.** Progress arc: baseline 0.7700 → exp02
+r256 0.7766 → exp03 zs top-2 0.7811 → exp04 cross-strategy trio 0.7888
+(+0.0188 over baseline). Still not merged into root (no LL-ensemble inference
+path there). Next levers (diminishing returns): (1) a *properly decoded* CoT
+member (fix answer extraction) to add a third strategy; (2) more few_shot
+variants (different example sets/seeds) as cheap diverse members; (3) weighted
+averaging by member strength; (4) self-consistency on a fixed CoT.
+
+**Files:**
+- Training (phase 1): `exp04_strategy_diverse/e04{a,b}/config.yaml`, `…/run.sbatch`
+- Ensemble scorer (phase 2): `exp04_strategy_diverse/e04{c,d,e}/main.py`,
+  `…/config.yaml`, `…/run.sbatch`
+- Submissions + summaries: `exp04_strategy_diverse/e04*/outputs/`

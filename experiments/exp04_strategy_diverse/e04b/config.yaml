@@ -1,0 +1,18 @@
+# ── exp04 / e04b — DIVERSE STRATEGY member: CoT @ r=256 ────────────────────────
+# Chain-of-thought with rationale distillation (base.yaml prompting.cot). Larger
+# context (1024) + smaller per-GPU batch to keep effective batch 768
+# (8 GPU × 24 × accum 4). NOTE: CoT is generation-based (emits a rationale then
+# "Answer: X"), so it is NOT first-token LL-scorable — ensembled separately.
+paths:
+  saved_models: "experiments/exp04_strategy_diverse/e04b/saved_models"
+  output_csv: "experiments/exp04_strategy_diverse/e04b/outputs/cot_submission.csv"
+lora:
+  r: 256
+  lora_alpha: 512
+training:
+  max_new_tokens: 512
+  max_length: 1024
+  batch_size: 24
+  grad_accumulation_steps: 4
+prompting:
+  strategy: "cot"

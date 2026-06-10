@@ -1,0 +1,16 @@
+# ── exp04 / e04a — DIVERSE STRATEGY member: few_shot @ r=256 ───────────────────
+# Same peak rank as the zero_shot best (exp02 e02c), different prompt strategy
+# (4 in-context examples) -> different errors -> a more diverse ensemble member.
+# Effective batch 768 (8 GPU × 48 × accum 2). LL-ensemble compatible.
+paths:
+  saved_models: "experiments/exp04_strategy_diverse/e04a/saved_models"
+  output_csv: "experiments/exp04_strategy_diverse/e04a/outputs/few_shot_submission.csv"
+lora:
+  r: 256
+  lora_alpha: 512
+training:
+  batch_size: 48
+  grad_accumulation_steps: 2
+prompting:
+  strategy: "few_shot"
+  num_few_shot_examples: 4
