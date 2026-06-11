@@ -177,3 +177,6 @@ experiments/**/_*.sh
 # Submission build artifacts (regenerable; checkpoints/venv never packaged)
 *.zip
 report.html
+
+# personal speaker crib — never tracked or submitted
+SPEAKER_NOTES.md
