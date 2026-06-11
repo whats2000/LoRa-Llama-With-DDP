@@ -173,3 +173,7 @@ experiment/
 
 # Experiment-level one-off helper scripts (collectors, etc.)
 experiments/**/_*.sh
+
+# Submission build artifacts (regenerable; checkpoints/venv never packaged)
+*.zip
+report.html
