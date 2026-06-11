@@ -4,6 +4,54 @@
 
 ---
 
+## 實驗結果（Ablation Study）
+
+10 個系統性實驗，評估指標為 Kaggle `hw-1-question-answering` 測試集準確率（public == private）。
+完整報告見 [`report.ipynb`](report.ipynb)，逐次實驗的數據與根因分析見 [`experiments/NOTES.md`](experiments/NOTES.md)。
+
+| 階段 | 方法 | Kaggle 測試準確率 |
+|------|------|:---:|
+| baseline | zero-shot, r=64 | 0.7700 |
+| exp02 | LoRA rank → **r=256**（容量呈倒 U） | 0.7766 |
+| exp03 | zero-shot option-LL ensemble | 0.7811 |
+| exp04 | 加入 few-shot（跨策略多樣性） | 0.7888 |
+| exp06 | 訓練配方 → **有效批次 192**（更多 optimizer steps） | 0.7844（單一模型最佳） |
+| exp07 | 用 eff-192 重訓 ensemble 成員 | 0.7922 |
+| **exp08** | **多 shot-count few-shot ensemble（最終）** | **0.7988** |
+
+**最佳 pipeline（0.7988）**：5 成員 option-likelihood ensemble（均勻平均），全部 r=256 / 有效批次 192 —
+`{zero-shot, zero-shot, few-shot-2, few-shot-4, few-shot-8}`，設定見
+[`experiments/exp08_fewshot_diversity/e08c/config.yaml`](experiments/exp08_fewshot_diversity/e08c/config.yaml)。
+
+**兩個主要發現：**
+1. **驗證集準確率會「排錯名次」** — 與測試集在高 rank 反相關，故所有決策以真實測試集為準。
+2. **Ensemble 增益只來自「正交」多樣性**（不同 prompt 策略 / shot 數），而非更強但相關的成員（更高 rank、DoRA、加權皆無效）。
+
+---
+
+## 模型下載（Trained Checkpoints）
+
+全部 28 個 LoRA / DoRA adapter（~17 GB）已發佈於 Hugging Face Hub：
+
+**🤗 [`whats2000/lora-llama-pathoqa-checkpoints`](https://huggingface.co/whats2000/lora-llama-pathoqa-checkpoints)**
+
+```python
+# 下載並載入最佳 zero-shot adapter（r=256 / 有效批次 192）
+from huggingface_hub import snapshot_download
+from transformers import AutoModelForCausalLM
+from peft import PeftModel
+import torch
+
+sub = "experiments/exp06_zeroshot_recipe/e06c/saved_models"
+local = snapshot_download("whats2000/lora-llama-pathoqa-checkpoints", allow_patterns=f"{sub}/*")
+base = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-3.2-1B-Instruct", torch_dtype=torch.bfloat16)
+model = PeftModel.from_pretrained(base, f"{local}/{sub}").eval()
+```
+
+最佳結果需 5 個 adapter（見上方設定檔）；HF repo 內路徑對應本專案的 `experiments/<exp>/<cell>/saved_models/`。
+
+---
+
 ## 環境設定
 
 ### 方案 A — 標準 `venv`（通用方式）
