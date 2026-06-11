@@ -86,7 +86,7 @@ def build_few_shot_examples(
 
 def main() -> None:
     """Parse arguments, load config, run training and inference."""
-    parser = argparse.ArgumentParser(description="HW1 – PathoQA Question Answering")
+    parser = argparse.ArgumentParser(description="PathoQA Question Answering")
     parser.add_argument(
         "--base",
         default="configs/base.yaml",

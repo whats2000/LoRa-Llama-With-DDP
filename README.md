@@ -2,6 +2,8 @@
 
 以 LoRA 微調 `meta-llama/Llama-3.2-1B-Instruct`，在 **PathoQA** 資料集上進行醫學選擇題問答。
 
+> 📌 本專案為**期末改進報告**（非 HW1 本身）：以 HW1 的 baseline（0.7700）為起點，做 10 組系統性 ablation，最佳提升至 **0.7988**。
+
 ---
 
 ## 實驗結果（Ablation Study）
@@ -154,7 +156,7 @@ sbatch --account=<使用者或專案ID> scripts/run_infer_validation_slurm.sh
 ## 專案結構
 
 ```
-HW1_{student_id}/
+Lora-Llama-With-DDP/
 ├── dataset/
 │   ├── dataset.csv          # 9,000 筆已標註的 PathoQA 範例
 │   └── benchmark.csv        # 900 筆未標註的 Kaggle 測試題目
